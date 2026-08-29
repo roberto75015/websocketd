@@ -122,6 +122,44 @@ func serveUnixSocket(path string, config *Config, log *libwebsocketd.LogScope) e
 	return serve("unix", path, config, log)
 }
 
+// redirectAddress returns addr with its port replaced by redirPort. IPv6
+// literals must be split with net.SplitHostPort (which understands brackets);
+// splitting on the first colon lands inside "[::1]:port" and produced a
+// malformed listener address that failed to bind — and, being a listener
+// error, killed every other listener too.
+func redirectAddress(addr string, redirPort int) (string, error) {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", fmt.Errorf("cannot derive redirect address from %q: %w", addr, err)
+	}
+	return net.JoinHostPort(host, strconv.Itoa(redirPort)), nil
+}
+
+// redirectLocation builds the redirect server's Location header: the host
+// the client itself sent, switched to the canonical scheme and the main
+// server's port. Not an open redirect: the target host is the client's own
+// Host header, only the port is rewritten.
+func redirectLocation(clientHost, listenAddr string, ssl bool) string {
+	scheme := "http"
+	if ssl {
+		scheme = "https"
+	}
+	host, _, err := net.SplitHostPort(clientHost)
+	if err != nil {
+		host = clientHost // no port in Host header — use it verbatim
+	}
+	_, port, err := net.SplitHostPort(listenAddr)
+	if err != nil {
+		return scheme + "://" + host + "/"
+	}
+	// A client Host that is already a bracketed IPv6 literal without a port
+	// must not be bracketed again by JoinHostPort.
+	if len(host) > 1 && host[0] == '[' && host[len(host)-1] == ']' {
+		return scheme + "://" + host + ":" + port + "/"
+	}
+	return scheme + "://" + net.JoinHostPort(host, port) + "/"
+}
+
 func main() {
 	config := parseCommandLine()
 
@@ -185,8 +223,11 @@ func main() {
 
 		if config.RedirPort != 0 {
 			go func(addr string) {
-				pos := strings.IndexByte(addr, ':')
-				rediraddr := addr[:pos] + ":" + strconv.Itoa(config.RedirPort) // it would be silly to optimize this one
+				rediraddr, redirErr := redirectAddress(addr, config.RedirPort)
+				if redirErr != nil {
+					rejects <- redirErr
+					return
+				}
 				redir := &http.Server{Addr: rediraddr,
 					// The redirect server only emits tiny immediate responses,
 					// so full timeouts are safe here (unlike the main server,
@@ -196,20 +237,9 @@ func main() {
 					WriteTimeout:      10 * time.Second,
 					IdleTimeout:       60 * time.Second,
 					Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-						// redirect to same hostname as in request but different port and probably schema
-						uri := "https://"
-						if !config.Ssl {
-							uri = "http://"
-						}
-						if cpos := strings.IndexByte(r.Host, ':'); cpos > 0 {
-							uri += r.Host[:cpos] + addr[pos:] + "/"
-						} else {
-							uri += r.Host + addr[pos:] + "/"
-						}
-
 						// Not an open redirect: the target is the host the client itself
 						// sent, switched to the canonical scheme and port.
-						http.Redirect(w, r, uri, http.StatusMovedPermanently) // #nosec G710
+						http.Redirect(w, r, redirectLocation(r.Host, addr, config.Ssl), http.StatusMovedPermanently) // #nosec G710
 					})}
 				log.Info("server", "Starting redirect server   : http://%s/", rediraddr)
 				rejects <- redir.ListenAndServe()

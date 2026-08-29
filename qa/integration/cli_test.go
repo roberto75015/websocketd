@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -256,6 +257,77 @@ func TestCLI012_RedirPort(t *testing.T) {
 	loc := resp.Header.Get("Location")
 	if !strings.Contains(loc, strconv.Itoa(mainPort)) {
 		t.Errorf("redirect location doesn't contain main port %d: %s", mainPort, loc)
+	}
+}
+
+// TestCLI014_RedirPortIPv6 verifies --redirport works with a bracketed IPv6
+// --address. The redirect listener's address used to be built by splitting on
+// the first colon, which lands inside "[::1]:port" — the malformed address
+// failed to bind, and because any listener error is fatal, the whole daemon
+// exited at startup. The Location header must also carry a properly
+// bracketed IPv6 literal.
+func TestCLI014_RedirPortIPv6(t *testing.T) {
+	t.Parallel()
+	probe, err := net.Listen("tcp", "[::1]:0")
+	if err != nil {
+		t.Skip("no IPv6 loopback available")
+	}
+	probe.Close()
+
+	mainPort := freePort(t)
+	redirPort := freePort(t)
+
+	cmd := exec.Command(websocketdBin,
+		"--port="+strconv.Itoa(mainPort),
+		"--address=[::1]",
+		"--redirport="+strconv.Itoa(redirPort),
+		"--loglevel=error",
+		testcmdBin, "echo")
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start: %v", err)
+	}
+	t.Cleanup(func() {
+		cmd.Process.Kill()
+		cmd.Wait()
+	})
+
+	// Both listeners must come up on the IPv6 loopback. The pre-fix bug
+	// killed the process during startup, so these dials never succeed.
+	for _, port := range []int{mainPort, redirPort} {
+		deadline := time.Now().Add(10 * time.Second)
+		addr := fmt.Sprintf("[::1]:%d", port)
+		var ok bool
+		for time.Now().Before(deadline) {
+			if conn, err := net.DialTimeout("tcp", addr, 200*time.Millisecond); err == nil {
+				conn.Close()
+				ok = true
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		if !ok {
+			t.Fatalf("listener on %s never came up (daemon exited at startup?)", addr)
+		}
+	}
+
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Get(fmt.Sprintf("http://[::1]:%d/", redirPort))
+	if err != nil {
+		t.Fatalf("HTTP GET to redir port failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusMovedPermanently {
+		t.Errorf("expected 301, got %d", resp.StatusCode)
+	}
+	want := fmt.Sprintf("http://[::1]:%d/", mainPort)
+	if got := resp.Header.Get("Location"); got != want {
+		t.Errorf("redirect location = %q, want %q", got, want)
 	}
 }
 

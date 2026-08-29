@@ -1,5 +1,11 @@
 Version 0.5.0 (Apr 26, 2026)
 
+* Fix: --address with a bracketed IPv6 literal now works together with
+  --redirport. The redirect listener's address was derived by splitting on
+  the first colon, which lands inside "[::1]:port"; the resulting malformed
+  address failed to bind and — any listener error being fatal — took down
+  every listener at startup. The redirect Location header is now also built
+  with correct IPv6 bracketing
 * Security: a stderr write larger than the internal 4KB read buffer with no
   trailing newline no longer wedges the wrapped process. Both stderr pumps
   treated the reader's buffer-full condition as fatal and stopped draining,
