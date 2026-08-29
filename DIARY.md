@@ -4,6 +4,42 @@ Latest entries first. Record significant decisions, architecture changes, and no
 
 ---
 
+## 2026-08-28 — Second security audit: remediating what a "wrap any command" tool inherits
+
+The second audit pass (SECURITY_AUDIT.md) went after live exploitation instead
+of code reading, and four findings got fixed tonight. The two that involved
+real design decisions, not just bug fixes:
+
+- **Process-group teardown (A4).** websocketd's contract is "the process is
+  the connection", but signals only ever reached the direct child, so a
+  script that backgrounded children leaked them past disconnect — and via
+  inherited pipes kept the session and its `--maxforks` slot alive after the
+  wrapped process had exited. Children now run in their own process group;
+  teardown signals the group and finishes with a SIGKILL sweep once the
+  direct child is gone. The deliberate tradeoff: the sweep kills stragglers
+  without a graceful window, so anything that must survive has to opt out
+  with `setsid` — the Unix-standard way to say "not my session's lifetime".
+  The other half of A4 (a *live* client holding a session open while a
+  grandchild holds the pipes) is intentionally unchanged: closing on
+  direct-child exit would cut off the legitimate fork-a-worker-then-exit
+  pattern.
+
+- **Stderr chunking (A1).** The stderr pumps died on any read error, and
+  `ReadSlice` returns `ErrBufferFull` for >4KB un-newlined writes — a
+  one-message remote wedge. The fix chose bounded-memory streaming (partial
+  chunks, like the audit's original framing) over `ReadBytes`-style unbounded
+  line buffering: stderr must never be the channel through which a child
+  OOMs the daemon. Consequence worth knowing: very long stderr lines now
+  arrive as multiple tagged messages under `--passstderr`.
+
+A3 (redirect address built by first-colon splitting — fatal for IPv6 +
+`--redirport`) and A5 (control-character escaping at the `logfunc` boundary)
+were mechanical. A2 (CSWSH: the default origin policy accepts everything,
+including `null`) is deliberately unfixed — changing it is a breaking
+behavior change and needs a maintainer decision; it stays documented in the
+audit. A6–A9 are filed individually as #472–#475 for triage rather than
+bundled, so each can be accepted, declined, or deferred on its own merits.
+
 ## 2026-08-17 — Unix socket: refuse to take over a live socket
 
 Prompted by #471 (a duplicate feature request for `--unixsocket`, already
