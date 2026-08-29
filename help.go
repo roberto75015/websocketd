@@ -120,7 +120,10 @@ Options:
 
   --closems=milliseconds         Specifies additional time process needs to gracefully
                                  finish before websocketd will send termination signals
-                                 to it. Default: 0 (signals sent after 100ms, 250ms,
+                                 to it. Signals go to the process's whole process group;
+                                 children that must outlive the session should start
+                                 their own session (setsid).
+                                 Default: 0 (signals sent after 100ms, 250ms,
                                  and 500ms of waiting)
 
   --pingms=milliseconds          Send WebSocket pings at this interval and drop

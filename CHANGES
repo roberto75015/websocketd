@@ -1,5 +1,12 @@
 Version 0.5.0 (Apr 26, 2026)
 
+* Security: session teardown now signals the wrapped process's whole process
+  group (and delivers a final SIGKILL to anything left in it once the direct
+  child is gone). Previously only the direct child was signaled, so a script
+  could spawn background children that survived the connection — and, by
+  holding the inherited pipes, kept the session and its --maxforks slot
+  occupied after the wrapped process exited. Scripts that want a child to
+  outlive the session must start it in its own session (setsid)
 * Security: a client-supplied "Proxy" request header is no longer passed to the
   child process as HTTP_PROXY. Because many HTTP clients honour that variable, a
   remote caller could otherwise redirect the backend's outbound traffic through

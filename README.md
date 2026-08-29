@@ -104,6 +104,7 @@ More Features
 *   As well as serving websocket daemons it also includes a static file server and classic CGI server for convenience.
 *   Can listen on a Unix domain socket (`--unixsocket`) instead of, or alongside, a TCP address — useful for exposing websocketd only to processes on the same host, e.g. behind an SSH-forwarded or reverse-proxied socket.
 *   STDERR can optionally be forwarded to WebSocket clients (`--passstderr`), tagged alongside STDOUT as JSON so a client can tell the two apart.
+*   When a client disconnects, the command is shut down — and so is any child process it spawned: teardown signals the whole process group. Scripts that deliberately spawn survivors should start them in their own session (`setsid`).
 *   Command line help available via `websocketd --help`.
 *   Includes [WebSocket developer console](https://github.com/joewalnes/websocketd/wiki/Developer-console) to make it easy to test your scripts before you've built a JavaScript frontend.
 *   [Examples in many programming languages](https://github.com/joewalnes/websocketd/tree/main/examples) are available to help you getting started.

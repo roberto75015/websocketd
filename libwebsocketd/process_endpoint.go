@@ -61,7 +61,10 @@ func (pe *ProcessEndpoint) Terminate() {
 
 	pid := pe.process.cmd.Process.Pid
 
-	// Escalating termination: stdin close → SIGINT → SIGTERM → SIGKILL
+	// Escalating termination: stdin close → SIGINT → SIGTERM → SIGKILL.
+	// Signals go to the child's whole process group, and a final SIGKILL
+	// sweep (killLeftoverGroup) ensures nothing is left in it once the direct
+	// child is gone — previously grandchildren survived the session.
 	signals := []struct {
 		signal  os.Signal
 		name    string
@@ -75,19 +78,21 @@ func (pe *ProcessEndpoint) Terminate() {
 
 	for _, step := range signals {
 		if step.signal != nil {
-			if err := pe.process.cmd.Process.Signal(step.signal); err != nil {
+			if err := signalChild(pe.process.cmd.Process, step.signal); err != nil {
 				pe.log.Error("process", "%s unsuccessful to %v: %s", step.name, pid, err)
 			}
 		}
 		select {
 		case <-terminated:
 			pe.log.Debug("process", "Process %v terminated after %s", pid, step.name)
+			killLeftoverGroup(pid, pe.log)
 			return
 		case <-time.After(step.timeout):
 		}
 	}
 
 	pe.log.Error("process", "SIGKILL did not terminate %v!", pid)
+	killLeftoverGroup(pid, pe.log)
 }
 
 func (pe *ProcessEndpoint) Output() chan []byte {

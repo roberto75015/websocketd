@@ -20,6 +20,9 @@ type LaunchedProcess struct {
 func launchCmd(commandName string, commandArgs []string, env []string) (*LaunchedProcess, error) {
 	cmd := exec.Command(commandName, commandArgs...)
 	cmd.Env = env
+	// Own process group, so session teardown can signal the whole tree
+	// (see proc_unix.go / proc_windows.go).
+	cmd.SysProcAttr = newChildSysProcAttr()
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
