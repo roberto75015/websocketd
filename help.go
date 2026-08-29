@@ -47,18 +47,21 @@ Options:
                                  left alone and websocketd will not start.
                                  Default: "" (do not listen on a Unix socket)
 
+
   --sameorigin={true,false}      Restrict (HTTP 403) protocol upgrades if the
                                  Origin header does not match to requested HTTP
                                  Host. Default: false.
 
   --origin=[scheme://]host[:port][,...]
                                  Restrict (HTTP 403) protocol upgrades if the
-                                 Origin header does not match to one of the host
-                                 and port combinations listed. If the port is not
-                                 specified, any port number will match. An entry
-                                 without a scheme matches BOTH http and https
-                                 origins; prefix "https://" to require TLS.
-                                 Default: "" (allow any origin)
+                                 Origin header does not match one of the listed
+                                 hosts. A port, when given, must match exactly;
+                                 an entry without a port matches only that
+                                 scheme's default port (80 for http, 443 for
+                                 https). Append ":*" to an entry to match any
+                                 port. An entry without a scheme matches BOTH
+                                 http and https origins; prefix "https://" to
+                                 require TLS. Default: "" (allow any origin)
 
   --ssl                          Listen for HTTPS socket instead of HTTP.
   --sslcert=FILE                 All three options must be used or all of

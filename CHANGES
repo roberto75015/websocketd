@@ -1,5 +1,14 @@
 Version 0.5.0 (Apr 26, 2026)
 
+* Security: --origin port matching is now strict. A portless entry used to
+  match ANY port, so --origin=trusted.com also accepted
+  http://trusted.com:1337 — vouching for whatever else happens to listen on
+  that host's other ports. Portless entries now match only the scheme's
+  default port (80 for http, 443 for https); append ":*" to an entry
+  (e.g. --origin=trusted.com:*) to restore any-port matching. Entries with
+  an explicit port are unaffected. This is a behavior change: setups relying
+  on the implicit any-port match must add ":*"
+
 * Fix: --maxframesize rejects negative values at startup instead of silently
   running unlimited. The read limit is only applied for positive values, so
   a negative value quietly removed the very DoS protection the flag exists

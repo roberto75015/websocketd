@@ -259,3 +259,27 @@ func TestSEC013_HttpoxyProxyHeaderStripped(t *testing.T) {
 func itoa(n int) string {
 	return fmt.Sprintf("%d", n)
 }
+
+// TestSEC014_OriginPortMatching verifies the port semantics of --origin
+// entries (issue #473). A portless entry used to match ANY port, so
+// --origin=trusted.example accepted http://trusted.example:1337 — any service
+// listening on any port of the trusted host could produce a matching origin.
+// Portless entries now match only the scheme's default port; an explicit
+// ":*" wildcard restores any-port matching.
+func TestSEC014_OriginPortMatching(t *testing.T) {
+	t.Parallel()
+
+	// Portless entry: non-default port must be rejected.
+	s := startServerOpts(t, []string{"--origin=trusted.com"}, "echo")
+	headers := http.Header{}
+	headers.Set("Origin", "http://trusted.com:1337")
+	if _, _, err := s.TryConnect("/", headers); err == nil {
+		t.Error("portless --origin entry must not match a non-default port")
+	}
+
+	// Explicit wildcard: any port must be accepted.
+	s2 := startServerOpts(t, []string{"--origin=trusted.com:*"}, "echo")
+	if _, _, err := s2.TryConnect("/", headers); err != nil {
+		t.Errorf("--origin=trusted.com:* must accept any port: %v", err)
+	}
+}

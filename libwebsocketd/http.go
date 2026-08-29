@@ -389,8 +389,25 @@ func checkOrigin(req *http.Request, config *Config, log *LogScope) (err error) {
 
 // matchOrigin checks if the given origin server/port/scheme matches any entry
 // in the allowed origins list. Extracted for testability.
+//
+// Port semantics (issue #473): an entry with an explicit port matches that
+// port only. A portless entry matches only the scheme's default port (80 for
+// http, 443 for https — both, if the entry carries no scheme). Appending
+// ":*" opts back in to matching any port, e.g. --origin=trusted.com:*, for
+// setups where every service on the host is trusted. Portless entries used
+// to match any port implicitly, so a single allowlisted host also vouched
+// for whatever else happened to listen on its other ports.
 func matchOrigin(originServer, originPort, originScheme string, allowedOrigins []string) bool {
 	for _, allowed := range allowedOrigins {
+		// Strip an explicit ":*" wildcard before anything else — url.Parse
+		// rejects it as an invalid port, so it must not reach the scheme
+		// handling below.
+		anyPort := false
+		if strings.HasSuffix(allowed, ":*") {
+			anyPort = true
+			allowed = strings.TrimSuffix(allowed, ":*")
+		}
+		allowedScheme := ""
 		if pos := strings.Index(allowed, "://"); pos > 0 {
 			allowedURL, err := url.Parse(allowed)
 			if err != nil {
@@ -399,21 +416,41 @@ func matchOrigin(originServer, originPort, originScheme string, allowedOrigins [
 			if allowedURL.Scheme != originScheme {
 				continue
 			}
+			allowedScheme = allowedURL.Scheme
 			allowed = allowed[pos+3:]
 		}
-		allowServer, allowPort, err := tellHostPort(allowed, false)
-		if err != nil {
+
+		// Explicit wildcard: any port on this host.
+		if anyPort {
+			allowServer, _, err := tellHostPort(allowed, false)
+			if err == nil && allowServer == originServer {
+				return true
+			}
 			continue
 		}
-		if allowPort == "80" && (len(allowed) < 3 || allowed[len(allowed)-3:] != ":80") {
-			// port defaulted to 80 (not explicitly specified), any port is allowed
-			if allowServer == originServer {
+
+		// An explicit port ("host:port") matches that port only. A missing
+		// port is an error from SplitHostPort — as is a bare bracketed IPv6
+		// literal — which falls through to the portless handling below.
+		if host, port, err := net.SplitHostPort(allowed); err == nil {
+			if port != "" && host == originServer && port == originPort {
 				return true
 			}
-		} else {
-			if allowServer == originServer && allowPort == originPort {
-				return true
-			}
+			continue
+		}
+
+		// Portless entry: the host must match and the origin port must be a
+		// default port of a scheme the entry accepts (either scheme when the
+		// entry itself carries none).
+		allowServer, _, err := tellHostPort(allowed, false)
+		if err != nil || allowServer != originServer {
+			continue
+		}
+		if originPort == "80" && (allowedScheme == "" || allowedScheme == "http") {
+			return true
+		}
+		if originPort == "443" && (allowedScheme == "" || allowedScheme == "https") {
+			return true
 		}
 	}
 	return false

@@ -66,7 +66,7 @@ var CheckOriginTests = []struct {
 	{"server.example.com", ReqHTTP, "http://example.com", OriginCouldDiffer, []string{"server.example.com"}, ReturnsError, "no origin allowed matches (junk prefix)"},
 	{"server.example.com", ReqHTTP, "http://example.com", OriginCouldDiffer, []string{"example.com.t"}, ReturnsError, "no origin allowed matches (junk suffix)"},
 	{"server.example.com", ReqHTTP, "http://example.com", OriginCouldDiffer, []string{"example.com"}, ReturnsPass, "origin allowed clean match"},
-	{"server.example.com", ReqHTTP, "http://example.com:81", OriginCouldDiffer, []string{"example.com"}, ReturnsPass, "origin allowed any port match"},
+	{"server.example.com", ReqHTTP, "http://example.com:81", OriginCouldDiffer, []string{"example.com:*"}, ReturnsPass, "origin allowed any port match"},
 	{"server.example.com", ReqHTTP, "http://example.com", OriginCouldDiffer, []string{"example.com:80"}, ReturnsPass, "origin allowed port match"},
 	{"server.example.com", ReqHTTP, "http://example.com", OriginCouldDiffer, []string{"example.com:81"}, ReturnsError, "origin allowed port mismatch"},
 	{"server.example.com", ReqHTTP, "http://example.com", OriginCouldDiffer, []string{"example.com:81"}, ReturnsError, "origin allowed port mismatch"},
@@ -175,7 +175,13 @@ func TestMatchOrigin(t *testing.T) {
 		wantMatch bool
 	}{
 		{"exact host match", "example.com", "80", "http", []string{"example.com"}, true},
-		{"host with any port", "example.com", "8080", "http", []string{"example.com"}, true},
+		{"portless entry rejects non-default port", "example.com", "8080", "http", []string{"example.com"}, false},
+		{"portless entry accepts https default port", "example.com", "443", "https", []string{"example.com"}, true},
+		{"wildcard entry matches any port", "example.com", "8080", "http", []string{"example.com:*"}, true},
+		{"wildcard entry matches default port", "example.com", "80", "http", []string{"example.com:*"}, true},
+		{"schemeful wildcard entry", "example.com", "8443", "https", []string{"https://example.com:*"}, true},
+		{"schemeful wildcard rejects other scheme", "example.com", "8443", "http", []string{"https://example.com:*"}, false},
+		{"schemeful portless entry rejects other port", "example.com", "8443", "https", []string{"https://example.com"}, false},
 		{"exact host and port", "example.com", "81", "http", []string{"example.com:81"}, true},
 		{"port mismatch", "example.com", "80", "http", []string{"example.com:81"}, false},
 		{"host mismatch", "other.com", "80", "http", []string{"example.com"}, false},
@@ -184,6 +190,7 @@ func TestMatchOrigin(t *testing.T) {
 		{"scheme mismatch", "example.com", "80", "http", []string{"https://example.com"}, false},
 		{"empty list", "example.com", "80", "http", []string{}, false},
 		{"short origin string", "x", "80", "http", []string{"x"}, true},
+		{"empty entry never matches", "example.com", "80", "http", []string{""}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
