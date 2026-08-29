@@ -142,6 +142,31 @@ func TestValidateBinaryPassStderr(t *testing.T) {
 	}
 }
 
+// TestValidateMaxFrameSize verifies that negative --maxframesize values are
+// rejected. NewWebSocketEndpoint only applies a read limit when the value is
+// positive, so a negative value silently meant "unlimited" — exactly the
+// operator error most likely to remove a DoS protection (issue #472).
+func TestValidateMaxFrameSize(t *testing.T) {
+	tests := []struct {
+		name          string
+		maxFrameSize  int64
+		wantErr       bool
+	}{
+		{"zero means unlimited", 0, false},
+		{"positive limit", 1 << 20, false},
+		{"negative value", -1, true},
+		{"very negative value", -1048576, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateMaxFrameSize(tt.maxFrameSize)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateMaxFrameSize(%d) error = %v, wantErr %v", tt.maxFrameSize, err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestValidateSSL(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -115,8 +115,7 @@ Options:
   --maxframesize=bytes           Reject inbound WebSocket messages larger than
                                  this, closing the connection (bounds per-client
                                  memory use). Default: 1048576 (1 MiB). Set 0 to
-                                 disable the limit; raise it if clients legitimately
-                                 send larger frames.
+                                 disable the limit; negative values are rejected.
 
   --closems=milliseconds         Specifies additional time process needs to gracefully
                                  finish before websocketd will send termination signals

@@ -132,6 +132,17 @@ func validateBinaryPassStderr(binary, passStderr bool) error {
 	return nil
 }
 
+// validateMaxFrameSize rejects negative --maxframesize values. The read
+// limit is only applied for positive values, so a negative value silently
+// meant "unlimited" — the one value an operator can pass that quietly
+// removes the DoS protection the flag exists for (issue #472).
+func validateMaxFrameSize(maxFrameSize int64) error {
+	if maxFrameSize < 0 {
+		return fmt.Errorf("--maxframesize must not be negative; use 0 for unlimited")
+	}
+	return nil
+}
+
 // buildParentEnv constructs the filtered parent environment variable list.
 func buildParentEnv(passenv string) []string {
 	env := make([]string, 0)
@@ -301,6 +312,12 @@ func parseCommandLine() *Config {
 
 	// Validate --binary / --passstderr
 	if err := validateBinaryPassStderr(*binaryFlag, *passStderrFlag); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
+
+	// Validate --maxframesize
+	if err := validateMaxFrameSize(*maxFrameSizeFlag); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}

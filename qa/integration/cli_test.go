@@ -331,6 +331,23 @@ func TestCLI014_RedirPortIPv6(t *testing.T) {
 	}
 }
 
+// TestCLI015_MaxFrameSizeNegativeRejected verifies that a negative
+// --maxframesize is rejected at startup. NewWebSocketEndpoint only applies
+// the read limit for positive values, so negatives used to silently mean
+// "unlimited" (issue #472).
+func TestCLI015_MaxFrameSizeNegativeRejected(t *testing.T) {
+	t.Parallel()
+	// Port 70000 is out of range, so even if the flag were (wrongly)
+	// accepted, the server exits on bind failure instead of serving forever.
+	_, stderr, code := runWebsocketd(t, "--port=70000", "--maxframesize=-1", testcmdBin, "echo")
+	if code == 0 {
+		t.Fatal("websocketd accepted --maxframesize=-1 and exited 0")
+	}
+	if !strings.Contains(stderr, "maxframesize") {
+		t.Errorf("expected an error naming maxframesize on stderr, got: %q", stderr)
+	}
+}
+
 func TestCLI013_Devconsole(t *testing.T) {
 	t.Parallel()
 	s := startServerOpts(t, []string{"--devconsole"}, "echo")

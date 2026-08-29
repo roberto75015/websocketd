@@ -1,5 +1,10 @@
 Version 0.5.0 (Apr 26, 2026)
 
+* Fix: --maxframesize rejects negative values at startup instead of silently
+  running unlimited. The read limit is only applied for positive values, so
+  a negative value quietly removed the very DoS protection the flag exists
+  for; use 0 when unlimited is really wanted
+
 * Security: control characters are escaped in the log output. Child stderr is
   relayed into the log verbatim, so a wrapped program echoing remote input
   on stderr could otherwise inject terminal control sequences (screen
