@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,6 +29,7 @@ const defaultMaxForks = 1024
 type Config struct {
 	Addr              []string // TCP addresses to listen on. e.g. ":1234", "1.2.3.4:1234" or "[::1]:1234"
 	UnixSocket        string   // Path of a Unix domain socket to listen on, in addition to (or instead of) Addr
+	SocketMode        os.FileMode // Permission bits to force on the Unix socket file (0 = follow umask)
 	MaxForks          int      // Number of allowable concurrent forks
 	LogLevel          libwebsocketd.LogLevel
 	RedirPort         int
@@ -73,6 +75,27 @@ func schemelessOriginWarnings(ssl bool, allowOrigins []string) []string {
 		}
 	}
 	return out
+}
+
+// parseSocketMode parses the --socketmode flag: an octal permission mode
+// such as "0700". The empty string means "not set" and leaves the socket
+// file to the process umask; an explicit zero is rejected because it would
+// make the socket unusable for everyone, owner included.
+func parseSocketMode(s string) (os.FileMode, error) {
+	if s == "" {
+		return 0, nil
+	}
+	mode, err := strconv.ParseUint(s, 8, 32)
+	if err != nil {
+		return 0, fmt.Errorf("--socketmode %q is not an octal permission mode (e.g. 0700)", s)
+	}
+	if mode > 0o777 {
+		return 0, fmt.Errorf("--socketmode %q has bits beyond permission bits (keep it within 0777)", s)
+	}
+	if mode == 0 {
+		return 0, fmt.Errorf("--socketmode 0 would make the socket unusable; pick a mode like 0700")
+	}
+	return os.FileMode(mode), nil
 }
 
 // resolveAddresses builds the list of TCP addresses to listen on.
@@ -223,6 +246,7 @@ func parseCommandLine() *Config {
 	// server config options
 	portFlag := flag.Int("port", 0, "HTTP port to listen on")
 	unixSocketFlag := flag.String("unixsocket", "", "Path of a Unix domain socket to listen on, in addition to (or instead of) --address/--port")
+	socketModeFlag := flag.String("socketmode", "", "Octal permission bits to force on the --unixsocket file (e.g. 0700); default follows umask")
 	versionFlag := flag.Bool("version", false, "Print version and exit")
 	licenseFlag := flag.Bool("license", false, "Print license and exit")
 	logLevelFlag := flag.String("loglevel", "access", "Log level, one of: debug, trace, access, info, error, fatal")
@@ -291,6 +315,12 @@ func parseCommandLine() *Config {
 		mainConfig.Addr = resolveAddresses([]string(addrlist), port)
 	}
 	mainConfig.UnixSocket = *unixSocketFlag
+	socketMode, err := parseSocketMode(*socketModeFlag)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
+	mainConfig.SocketMode = socketMode
 	mainConfig.MaxForks = *maxForksFlag
 	mainConfig.RedirPort = *redirPortFlag
 

@@ -47,6 +47,14 @@ Options:
                                  left alone and websocketd will not start.
                                  Default: "" (do not listen on a Unix socket)
 
+  --socketmode=mode              Octal permission bits to force on the Unix
+                                 socket file (e.g. 0700), applied immediately
+                                 after binding. Without it the file follows the
+                                 process umask — which can leave the socket
+                                 connectable by other local users when the
+                                 umask is permissive (e.g. 0 in daemon
+                                 contexts). Default: umask.
+
 
   --sameorigin={true,false}      Restrict (HTTP 403) protocol upgrades if the
                                  Origin header does not match to requested HTTP

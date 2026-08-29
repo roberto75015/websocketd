@@ -349,3 +349,36 @@ func TestValidateDir(t *testing.T) {
 		}
 	})
 }
+
+// TestParseSocketMode covers --socketmode parsing (issue #474): octal modes
+// only, within permission bits, and no explicit zero (which would make the
+// socket unusable even for its owner).
+func TestParseSocketMode(t *testing.T) {
+	tests := []struct {
+		in      string
+		want    os.FileMode
+		wantErr bool
+	}{
+		{"", 0, false}, // unset: follow umask
+		{"0700", 0o700, false},
+		{"754", 0o754, false},
+		{"0007", 0o007, false},
+		{"777", 0o777, false},
+		{"0", 0, true},     // would make the socket unusable
+		{"0000", 0, true},  // ditto, zero-padded
+		{"0999", 0, true},  // 9 is not an octal digit
+		{"abc", 0, true},
+		{"1000", 0, true},  // setuid/sticky bits are not permission bits
+		{"1777", 0, true},
+	}
+	for _, tt := range tests {
+		got, err := parseSocketMode(tt.in)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("parseSocketMode(%q) error = %v, wantErr %v", tt.in, err, tt.wantErr)
+			continue
+		}
+		if err == nil && got != tt.want {
+			t.Errorf("parseSocketMode(%q) = %o, want %o", tt.in, got, tt.want)
+		}
+	}
+}

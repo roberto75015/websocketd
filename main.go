@@ -74,6 +74,15 @@ func serve(network, address string, config *Config, log *libwebsocketd.LogScope)
 	if err != nil {
 		return err
 	}
+	// Pin the Unix socket's permissions when asked: the umask default can
+	// leave the socket connectable by other local users. Chmod immediately
+	// after bind so the umask-derived window is as short as it can be.
+	if network == "unix" && config.SocketMode != 0 {
+		if err := os.Chmod(address, config.SocketMode); err != nil {
+			listener.Close()
+			return fmt.Errorf("failed to chmod unix socket %s to %o: %w", address, config.SocketMode, err)
+		}
+	}
 	if !config.Ssl {
 		return (&http.Server{ReadHeaderTimeout: readHeaderTimeout}).Serve(listener)
 	}

@@ -1,5 +1,10 @@
 Version 0.5.0 (Apr 26, 2026)
 
+* New: --socketmode=0700-style flag pins the Unix socket file's permissions
+  instead of leaving them to the process umask, which under permissive umasks
+  (0 is common in daemon contexts) left the socket connectable by any local
+  user. The mode is applied immediately after binding
+
 * Security: --origin port matching is now strict. A portless entry used to
   match ANY port, so --origin=trusted.com also accepted
   http://trusted.com:1337 — vouching for whatever else happens to listen on

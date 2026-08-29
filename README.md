@@ -102,7 +102,7 @@ More Features
 *   Very simple install. Just [download](https://github.com/joewalnes/websocketd/wiki/Download-and-install) the single executable for Linux, Mac or Windows and run it. Minimal dependencies, no installers, no package managers, no external libraries. Suitable for development and production servers.
 *   Server side scripts can access details about the WebSocket HTTP request (e.g. remote host, query parameters, cookies, path, etc) via standard [CGI environment variables](https://github.com/joewalnes/websocketd/wiki/Environment-variables).
 *   As well as serving websocket daemons it also includes a static file server and classic CGI server for convenience.
-*   Can listen on a Unix domain socket (`--unixsocket`) instead of, or alongside, a TCP address — useful for exposing websocketd only to processes on the same host, e.g. behind an SSH-forwarded or reverse-proxied socket.
+*   Can listen on a Unix domain socket (`--unixsocket`) instead of, or alongside, a TCP address — useful for exposing websocketd only to processes on the same host, e.g. behind an SSH-forwarded or reverse-proxied socket. `--socketmode` (e.g. `0700`) pins the socket's permissions instead of leaving them to the process umask.
 *   STDERR can optionally be forwarded to WebSocket clients (`--passstderr`), tagged alongside STDOUT as JSON so a client can tell the two apart.
 *   When a client disconnects, the command is shut down — and so is any child process it spawned: teardown signals the whole process group. Scripts that deliberately spawn survivors should start them in their own session (`setsid`).
 *   Command line help available via `websocketd --help`.

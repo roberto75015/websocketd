@@ -85,3 +85,60 @@ func TestUnixSocket_RefusesLiveSocketLeavesItServing(t *testing.T) {
 	ws.Send("round trip")
 	ws.ExpectMessage("round trip")
 }
+
+// TestUnixSocket_SocketMode verifies --socketmode: the socket file's
+// permissions must follow the flag instead of the process umask (issue #474).
+// Without the flag they follow umask, which is world-connectable under the
+// permissive umasks common in daemon contexts.
+func TestUnixSocket_SocketMode(t *testing.T) {
+	skipUnixSocketOnWindows(t)
+	t.Parallel()
+
+	sockPath := shortSocketPath(t)
+
+	startServerRawArgs(t, []string{
+		"--unixsocket=" + sockPath,
+		"--socketmode=0754",
+		testcmdBin, "echo",
+	})
+	waitForSocket(t, sockPath, 10*time.Second)
+
+	fi, err := os.Stat(sockPath)
+	if err != nil {
+		t.Fatalf("stat socket: %v", err)
+	}
+	if fi.Mode()&os.ModeSocket == 0 {
+		t.Fatalf("%s is not a socket", sockPath)
+	}
+	if got := fi.Mode().Perm(); got != 0o754 {
+		t.Errorf("socket mode = %o, want 754", got)
+	}
+
+	// The server must still serve normally on the restricted socket.
+	ws := dialUnixSocket(t, sockPath, "/")
+	ws.Send("still serving")
+	ws.ExpectMessage("still serving")
+}
+
+// TestUnixSocket_SocketModeInvalid verifies that a malformed --socketmode is
+// rejected at startup rather than silently ignored.
+func TestUnixSocket_SocketModeInvalid(t *testing.T) {
+	skipUnixSocketOnWindows(t)
+	t.Parallel()
+
+	sockPath := shortSocketPath(t)
+	s := startServerRawArgs(t, []string{
+		"--unixsocket=" + sockPath,
+		"--socketmode=0999", // 9 is not an octal digit
+		testcmdBin, "echo",
+	})
+	if !s.WaitExit(10 * time.Second) {
+		t.Fatal("websocketd accepted an invalid --socketmode and kept running")
+	}
+	if code := s.ExitCode(); code == 0 {
+		t.Errorf("exit code = 0, want non-zero")
+	}
+	if out := s.Stdout() + s.Stderr(); !strings.Contains(out, "socketmode") {
+		t.Errorf("expected an error naming socketmode, got:\n%s", out)
+	}
+}
