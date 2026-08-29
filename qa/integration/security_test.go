@@ -225,6 +225,36 @@ func TestSEC012_CommandInjectionViaQueryString(t *testing.T) {
 	}
 }
 
+// TestSEC013_HttpoxyProxyHeaderStripped verifies that a client-supplied "Proxy"
+// request header is NOT propagated to the child process as HTTP_PROXY
+// (httpoxy, CVE-2016-5385). Otherwise an attacker could redirect the backend's
+// outbound HTTP traffic through a proxy they control with a single request.
+func TestSEC013_HttpoxyProxyHeaderStripped(t *testing.T) {
+	t.Parallel()
+	s := startServer(t, "env")
+
+	headers := http.Header{}
+	headers["Proxy"] = []string{"http://attacker.example:8080/"}
+	// Control header: proves the header->env path is live, so a pass on the
+	// assertion below can't be vacuous (e.g. if headers stopped flowing at all).
+	headers["X-Custom-Test"] = []string{"custom-value"}
+
+	ws, _, err := s.TryConnect("/", headers)
+	if err != nil {
+		t.Fatalf("connect failed: %v", err)
+	}
+	defer ws.Close()
+
+	output := strings.Join(collectMessages(ws, 3*time.Second), "\n")
+
+	if v, ok := findEnvValue(output, "HTTP_PROXY"); ok {
+		t.Errorf("Proxy header leaked to child as HTTP_PROXY=%q (httpoxy / CVE-2016-5385)", v)
+	}
+	if v, ok := findEnvValue(output, "HTTP_X_CUSTOM_TEST"); !ok || v != "custom-value" {
+		t.Fatalf("control header missing: HTTP_X_CUSTOM_TEST=%q (ok=%v); test cannot validate the Proxy assertion", v, ok)
+	}
+}
+
 // Helper
 func itoa(n int) string {
 	return fmt.Sprintf("%d", n)

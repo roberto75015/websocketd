@@ -1,5 +1,10 @@
 Version 0.5.0 (Apr 26, 2026)
 
+* Security: a client-supplied "Proxy" request header is no longer passed to the
+  child process as HTTP_PROXY. Because many HTTP clients honour that variable, a
+  remote caller could otherwise redirect the backend's outbound traffic through
+  a proxy they control with a single request (httpoxy, CVE-2016-5385). The
+  WebSocket environment now drops it, matching net/http/cgi
 * Releases now include a native Apple Silicon binary (darwin_arm64). Previously
   only darwin_amd64 was built, so Mac users on M-series hardware ran it under
   Rosetta 2 — despite the QA plan having covered macOS ARM64 (BUILD-015) all

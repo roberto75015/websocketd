@@ -99,6 +99,13 @@ func createEnv(handler *WebsocketdHandler, req *http.Request, log *LogScope) []s
 	}
 
 	for k, hdrs := range headers {
+		// Never propagate a client-supplied "Proxy" header as HTTP_PROXY:
+		// many HTTP clients honour that variable, so it would let a remote
+		// caller redirect the child's outbound traffic (httpoxy, CVE-2016-5385).
+		// net/http/cgi drops it for the same reason.
+		if http.CanonicalHeaderKey(k) == "Proxy" {
+			continue
+		}
 		header := fmt.Sprintf("HTTP_%s", dashReplacer.Replace(k))
 		env = appendEnv(env, header, hdrs...)
 		log.Debug("env", "Header variable %s", env[len(env)-1])
