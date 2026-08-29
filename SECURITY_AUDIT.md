@@ -249,7 +249,7 @@ Live dump of a CGI child's env shows:
 - **A3 FIXED** — commit `f8e3cb3`: `redirectAddress`/`redirectLocation` parse with `net.SplitHostPort`; IPv6 `--address` + `--redirport` works, Location headers correctly bracketed. Regression: `TestRedirect{Address,Location}`, `TestCLI014`.
 - **A4 FIXED (teardown half)** — commit `14374dc`: children run in their own process group; teardown signals the group and finishes with a SIGKILL sweep; survivors must `setsid`. Regression: `TestPROC013`. The *session-linger* half (a live client keeps a session open while a grandchild holds the pipes) is intentionally unchanged — closing on direct-child exit would break the legitimate fork-a-worker-then-exit pattern.
 - **A5 FIXED** — commit `2e963cf`: the log function escapes control bytes as `\xNN` in messages and associated values. Regression: `TestLogfuncEscapesControls`, `TestEscapeControls`.
-- **A6, A7, A8, A9 — filed for triage** as issues #472, #473, #474, #475.
+- **A6, A7, A8, A9 — FIXED (follow-up round, same day)**: A6 → commit `84e2b86` rejects negative `--maxframesize` (issue #472); A7 → commit `e6b978c` makes `--origin` port matching strict with an explicit `:*` wildcard (issue #473 — behavior change, migration in CHANGES); A8 → commit `d61c4e1` adds `--socketmode` to pin Unix socket permissions, applied immediately after bind (issue #474); A9 → commit `090f42d` documents the Host-derived `SERVER_NAME`/`SERVER_PORT` trust boundary and the default `PATH` passthrough (issue #475 — kept as intended virtual-host semantics, matching `net/http/cgi`).
 
 ## Recommended fix order
 

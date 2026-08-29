@@ -4,6 +4,35 @@ Latest entries first. Record significant decisions, architecture changes, and no
 
 ---
 
+## 2026-08-28 — Closing out the audit's low-severity items (#472–#475)
+
+Follow-up to the audit remediation above, one commit per issue. Two calls
+worth recording:
+
+- **#473, strict `--origin` ports.** The old behavior (portless entry matches
+  any port) was documented, but implicit-and-dangerous is still dangerous:
+  allowlisting a host vouched for every service on its other ports, and an
+  origin from any of them satisfied the check. Went strict (default ports
+  only) with `:*` as the explicit opt-in, accepting the breakage — the
+  migration is one suffix, and the default-port case that every existing
+  test exercises is unchanged. The wildcard is stripped *before* `url.Parse`
+  because a `:*` port makes the whole entry unparseable — that ordering bug
+  was caught by the new unit tests, not by eyeballing.
+
+- **#475, docs over "fix".** Considered deriving `SERVER_NAME`/`SERVER_PORT`
+  from the actual bind address, then didn't: Host-derived values are
+  virtual-host semantics, identical to `net/http/cgi` and to how every
+  mainstream framework builds URLs, and bind-derived values (an interface
+  IP) would break scripts that generate links. The real gap was that the
+  trust boundary was invisible — so it is now documented at the point of
+  use (README + `--help`), including the `PATH` layout disclosure that the
+  default `--passenv` implies.
+
+Also: `--socketmode` (#474) deliberately does *not* change the default —
+under umask 0 it would have broken legitimate group-shared sockets — and
+negative `--maxframesize` (#472) is now a startup error, since it silently
+meant "unlimited".
+
 ## 2026-08-28 — Second security audit: remediating what a "wrap any command" tool inherits
 
 The second audit pass (SECURITY_AUDIT.md) went after live exploitation instead
