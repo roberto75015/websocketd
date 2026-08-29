@@ -100,7 +100,7 @@ More Features
 -------------
 
 *   Very simple install. Just [download](https://github.com/joewalnes/websocketd/wiki/Download-and-install) the single executable for Linux, Mac or Windows and run it. Minimal dependencies, no installers, no package managers, no external libraries. Suitable for development and production servers.
-*   Server side scripts can access details about the WebSocket HTTP request (e.g. remote host, query parameters, cookies, path, etc) via standard [CGI environment variables](https://github.com/joewalnes/websocketd/wiki/Environment-variables).
+*   Server side scripts can access details about the WebSocket HTTP request (e.g. remote host, query parameters, cookies, path, etc) via standard [CGI environment variables](https://github.com/joewalnes/websocketd/wiki/Environment-variables). Note that `SERVER_NAME` and `SERVER_PORT` mirror the request's `Host` header (virtual-host semantics, as in `net/http/cgi`), so a client that controls its `Host` header controls them too — don't make access decisions on them.
 *   As well as serving websocket daemons it also includes a static file server and classic CGI server for convenience.
 *   Can listen on a Unix domain socket (`--unixsocket`) instead of, or alongside, a TCP address — useful for exposing websocketd only to processes on the same host, e.g. behind an SSH-forwarded or reverse-proxied socket. `--socketmode` (e.g. `0700`) pins the socket's permissions instead of leaving them to the process umask.
 *   STDERR can optionally be forwarded to WebSocket clients (`--passstderr`), tagged alongside STDOUT as JSON so a client can tell the two apart.

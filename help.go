@@ -87,6 +87,9 @@ Options:
   --passenv VAR[,VAR...]         Lists environment variables allowed to be
                                  passed to executed scripts. Does not work for
                                  Windows since all the variables are kept there.
+                                 The default includes PATH, so scripts — and
+                                 thus anyone who can make them run — learn the
+                                 operator's PATH layout.
 
   --binary={true,false}          Switches communication to binary, process reads
                                  send to browser as blobs and all reads from the
