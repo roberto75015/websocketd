@@ -47,6 +47,141 @@ func stdoutStderrProcess(t *testing.T, stdoutLine, stderrLine string) *LaunchedP
 	return lp
 }
 
+// TestStderrLongLineKeepsProcessAlive reproduces a remote-triggered hang: a
+// stderr write larger than the reader's 4KB buffer with no trailing newline
+// made ReadSlice return ErrBufferFull, which both stderr pumps treated as
+// fatal. The pump quit, the child then blocked forever on its next stderr
+// write once the OS pipe filled, and the session was wedged.
+//
+// The child here writes 256KB (more than any common pipe buffer) of
+// un-newlined stderr, then a stdout marker, then serves stdin. If the pump
+// died, the child never reaches the marker.
+func TestStderrLongLineKeepsProcessAlive(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test uses /bin/sh")
+	}
+	script := `head -c 262144 /dev/zero | tr '\0' 'X' >&2; echo MARKER; while IFS= read -r line; do echo "R:$line"; done`
+	lp, err := launchCmd("/bin/sh", []string{"-c", script}, nil)
+	if err != nil {
+		t.Fatalf("launchCmd failed: %v", err)
+	}
+
+	pe := NewProcessEndpoint(lp, false, quietLogScope(), false)
+	pe.StartReading()
+	defer pe.Terminate()
+
+	// With the bug the child wedges writing stderr and this times out.
+	if msg, ok := recvTimeout(t, pe.Output(), 10*time.Second); !ok || string(msg) != "MARKER" {
+		t.Fatalf("stdout MARKER never arrived (child wedged on stderr write?): got %q, ok=%v", msg, ok)
+	}
+
+	// The session must stay fully functional afterwards.
+	if !pe.Send([]byte("ping\n")) {
+		t.Fatal("Send to stdin failed")
+	}
+	if msg, ok := recvTimeout(t, pe.Output(), 10*time.Second); !ok || string(msg) != "R:ping" {
+		t.Fatalf("stdin roundtrip failed after long stderr line: got %q, ok=%v", msg, ok)
+	}
+}
+
+// TestStderrLongLineKeepsProcessAlive_PassStderr is the --passstderr mirror:
+// the tagged stderr reader must keep draining (delivering the long line as
+// consecutive chunks) instead of abandoning the pipe.
+func TestStderrLongLineKeepsProcessAlive_PassStderr(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test uses /bin/sh")
+	}
+	script := `head -c 262144 /dev/zero | tr '\0' 'X' >&2; echo MARKER; while IFS= read -r line; do echo "R:$line"; done`
+	lp, err := launchCmd("/bin/sh", []string{"-c", script}, nil)
+	if err != nil {
+		t.Fatalf("launchCmd failed: %v", err)
+	}
+
+	pe := NewProcessEndpoint(lp, false, quietLogScope(), true)
+	pe.StartReading()
+	defer pe.Terminate()
+
+	stderrBytes := 0
+	deadline := time.After(15 * time.Second)
+	for {
+		select {
+		case data, ok := <-pe.Output():
+			if !ok {
+				t.Fatal("output channel closed before MARKER arrived")
+			}
+			var envelope taggedMessage
+			if err := json.Unmarshal(data, &envelope); err != nil {
+				t.Fatalf("failed to parse JSON message %q: %v", data, err)
+			}
+			if envelope.Stream == "stdout" {
+				if envelope.Data == "MARKER" {
+					goto alive
+				}
+				t.Fatalf("unexpected stdout message %q", envelope.Data)
+			}
+			stderrBytes += len(envelope.Data)
+		case <-deadline:
+				t.Fatalf("MARKER never arrived (child wedged on stderr write?); %d stderr bytes relayed", stderrBytes)
+		}
+	}
+
+alive:
+	// The session must stay fully functional afterwards.
+	if !pe.Send([]byte("ping\n")) {
+		t.Fatal("Send to stdin failed")
+	}
+	for {
+		select {
+		case data, ok := <-pe.Output():
+			if !ok {
+				t.Fatal("output channel closed before R:ping arrived")
+			}
+			var envelope taggedMessage
+			if err := json.Unmarshal(data, &envelope); err != nil {
+				t.Fatalf("failed to parse JSON message %q: %v", data, err)
+			}
+			if envelope.Stream == "stdout" && envelope.Data == "R:ping" {
+				goto complete
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatal("stdin roundtrip failed after long stderr line")
+		}
+	}
+
+complete:
+	// MARKER races ahead of the last stderr chunks on the shared output
+	// channel, so completeness is checked here, after the roundtrip: the
+	// full 256KB written before MARKER must have been relayed as chunks.
+	for stderrBytes < 250000 {
+		select {
+		case data, ok := <-pe.Output():
+			if !ok {
+				t.Fatalf("output channel closed with only %d of 262144 stderr bytes relayed", stderrBytes)
+			}
+			var envelope taggedMessage
+			if err := json.Unmarshal(data, &envelope); err != nil {
+				t.Fatalf("failed to parse JSON message %q: %v", data, err)
+			}
+			if envelope.Stream == "stderr" {
+				stderrBytes += len(envelope.Data)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatalf("timed out with only %d of 262144 stderr bytes relayed (pump quit early?)", stderrBytes)
+		}
+	}
+}
+
+// recvTimeout reads one message from ch, failing the test on timeout.
+func recvTimeout(t *testing.T, ch chan []byte, timeout time.Duration) ([]byte, bool) {
+	t.Helper()
+	select {
+	case msg, ok := <-ch:
+		return msg, ok
+	case <-time.After(timeout):
+		return nil, false
+	}
+}
+
 // TestTerminateUnblocksParkedReader reproduces the goroutine leak that occurs
 // when the relay stops draining Output() (e.g. the WebSocket send failed) while
 // the stdout reader is parked on the unbuffered output channel send. Terminate

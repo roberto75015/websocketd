@@ -1,5 +1,13 @@
 Version 0.5.0 (Apr 26, 2026)
 
+* Security: a stderr write larger than the internal 4KB read buffer with no
+  trailing newline no longer wedges the wrapped process. Both stderr pumps
+  treated the reader's buffer-full condition as fatal and stopped draining,
+  so the process blocked forever on its next stderr write once the OS pipe
+  filled — remotely triggerable by anyone who can reach the WebSocket, with
+  a single small message, whenever the wrapped program echoes input on
+  stderr. Long stderr lines are now relayed (and logged) as consecutive
+  chunks instead
 * Security: session teardown now signals the wrapped process's whole process
   group (and delivers a final SIGKILL to anything left in it once the direct
   child is gone). Previously only the direct child was signaled, so a script

@@ -211,42 +211,62 @@ func (pe *ProcessEndpoint) readStdoutTagged() {
 	}
 }
 
+// Stderr lines are read with a bounded reader and streamed in chunks: a
+// stderr write larger than the reader's buffer (4KB) with no trailing newline
+// would otherwise return bufio.ErrBufferFull, and treating that as fatal
+// abandoned the pipe — the child then blocked forever on its next stderr
+// write once the OS pipe filled (a remote-triggered hang, since stdin is
+// attacker-driven). Long stderr lines are delivered (and logged) as
+// consecutive partial chunks instead.
 func (pe *ProcessEndpoint) readStderrTagged() {
 	defer pe.wg.Done()
 	bufstderr := bufio.NewReader(pe.process.stderr)
 	for {
 		buf, err := bufstderr.ReadSlice('\n')
+		if len(buf) > 0 {
+			line := trimEOL(buf)
+			pe.log.Error("stderr", "%s", string(line)) // still logged server-side, same as without --passstderr
+			select {
+			case pe.output <- tagMessage("stderr", line):
+			case <-pe.done:
+				return
+			}
+		}
+		if err == bufio.ErrBufferFull {
+			continue // partial chunk emitted above; keep draining
+		}
 		if err != nil {
 			if err != io.EOF {
 				pe.log.Error("process", "Unexpected error while reading STDERR from process: %s", err)
 			} else {
 				pe.log.Debug("process", "Process STDERR closed")
 			}
-			break
-		}
-		line := trimEOL(buf)
-		pe.log.Error("stderr", "%s", string(line)) // still logged server-side, same as without --passstderr
-		select {
-		case pe.output <- tagMessage("stderr", line):
-		case <-pe.done:
 			return
 		}
 	}
 }
 
+// logStderr drains stderr line by line into the log, streaming partial
+// chunks for lines longer than the reader's buffer (see readStderrTagged for
+// why abandoning the pipe here would wedge the child).
 func (pe *ProcessEndpoint) logStderr() {
 	bufstderr := bufio.NewReader(pe.process.stderr)
 	for {
 		buf, err := bufstderr.ReadSlice('\n')
+		if len(buf) > 0 {
+			pe.log.Error("stderr", "%s", string(trimEOL(buf)))
+		}
+		if err == bufio.ErrBufferFull {
+			continue // partial chunk logged above; keep draining
+		}
 		if err != nil {
 			if err != io.EOF {
 				pe.log.Error("process", "Unexpected error while reading STDERR from process: %s", err)
 			} else {
 				pe.log.Debug("process", "Process STDERR closed")
 			}
-			break
+			return
 		}
-		pe.log.Error("stderr", "%s", string(trimEOL(buf)))
 	}
 }
 
