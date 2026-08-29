@@ -26,6 +26,27 @@ import (
 // safe on every server and defends against slowloris-style header dribbling.
 const readHeaderTimeout = 10 * time.Second
 
+// escapeControls neutralizes control characters that have no business in a
+// log line: terminal escape sequences (ESC, OSC, BEL ...), embedded newlines
+// that would forge additional log lines, and DEL. Tab is kept (harmless
+// whitespace), and all other bytes — including UTF-8 — pass through
+// untouched. Child stderr is attacker-influenced when the wrapped program
+// echoes its input, and it is relayed into the log verbatim, so the log
+// function is the last place to keep such bytes out of the log stream.
+func escapeControls(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c < 0x20 && c != '\t') || c == 0x7f {
+			fmt.Fprintf(&b, "\\x%02x", c)
+		} else {
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
+}
+
 func logfunc(l *libwebsocketd.LogScope, level libwebsocketd.LogLevel, levelName string, category string, msg string, args ...interface{}) {
 	if level < l.MinLevel {
 		return
@@ -37,11 +58,11 @@ func logfunc(l *libwebsocketd.LogScope, level libwebsocketd.LogLevel, levelName 
 		if index > 0 {
 			assocDump += " "
 		}
-		assocDump += fmt.Sprintf("%s:'%s'", pair.Key, pair.Value)
+		assocDump += fmt.Sprintf("%s:'%s'", pair.Key, escapeControls(pair.Value))
 	}
 
 	l.Mutex.Lock()
-	fmt.Printf("%s | %-6s | %-10s | %s | %s\n", libwebsocketd.Timestamp(), levelName, category, assocDump, fullMsg)
+	fmt.Printf("%s | %-6s | %-10s | %s | %s\n", libwebsocketd.Timestamp(), levelName, category, assocDump, escapeControls(fullMsg))
 	l.Mutex.Unlock()
 }
 

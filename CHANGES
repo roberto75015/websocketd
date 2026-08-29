@@ -1,5 +1,10 @@
 Version 0.5.0 (Apr 26, 2026)
 
+* Security: control characters are escaped in the log output. Child stderr is
+  relayed into the log verbatim, so a wrapped program echoing remote input
+  on stderr could otherwise inject terminal control sequences (screen
+  clearing, title/OSC changes) or forge additional log lines with embedded
+  newlines into whatever consumes websocketd's log
 * Fix: --address with a bracketed IPv6 literal now works together with
   --redirport. The redirect listener's address was derived by splitting on
   the first colon, which lands inside "[::1]:port"; the resulting malformed
