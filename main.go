@@ -193,9 +193,11 @@ func redirectLocation(clientHost, listenAddr string, ssl bool) string {
 // originPolicyWarning is printed at startup when no origin policy is
 // configured (audit finding A2: the default accepts any origin, so any web
 // page that can reach the server can drive the commands it serves). It is
-// printed directly, unconditionally of --loglevel, because it is a security
-// notice rather than a log line, and it is the one warning this tool must
-// never let anyone miss. --anyorigin, --sameorigin or --origin silence it.
+// printed directly to stderr, unconditionally of --loglevel, because it is
+// a security notice rather than a log line - the stdout log stream stays
+// clean for parsing, and daemons that redirect stdout to a log file still
+// show the warning on the console. --anyorigin, --sameorigin or --origin
+// silence it.
 const originPolicyWarning = `
 ================================================================================
   SECURITY WARNING: no origin policy is configured.
@@ -231,7 +233,7 @@ func main() {
 	log := libwebsocketd.RootLogScope(config.LogLevel, logfunc)
 
 	if !config.SameOrigin && config.AllowOrigins == nil && !config.AnyOrigin {
-		fmt.Print(originPolicyWarning)
+		fmt.Fprint(os.Stderr, originPolicyWarning)
 	}
 
 	for _, o := range schemelessOriginWarnings(config.Ssl, config.AllowOrigins) {

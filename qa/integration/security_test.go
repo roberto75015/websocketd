@@ -290,7 +290,7 @@ func TestSEC014_OriginPortMatching(t *testing.T) {
 func TestSEC015_OriginPolicyWarning(t *testing.T) {
 	t.Parallel()
 	s := startServer(t, "echo") // no --sameorigin/--origin/--anyorigin
-	out := s.Stdout()
+	out := s.Stderr()
 	for _, want := range []string{
 		"SECURITY WARNING",
 		"--sameorigin",
@@ -315,7 +315,7 @@ func TestSEC016_OriginPolicyWarningSilenced(t *testing.T) {
 		{"--anyorigin"},
 	} {
 		s := startServerOpts(t, flags, "echo")
-		if out := s.Stdout(); strings.Contains(out, "SECURITY WARNING") {
+		if out := s.Stderr(); strings.Contains(out, "SECURITY WARNING") {
 			t.Errorf("warning printed despite %v", flags)
 		}
 	}
