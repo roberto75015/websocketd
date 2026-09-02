@@ -4,6 +4,30 @@ Latest entries first. Record significant decisions, architecture changes, and no
 
 ---
 
+## 2026-09-01 — A2: warn loudly, change nothing (yet), and make opting out explicit
+
+The CSWSH finding (default accepts any origin) stayed behavior-compatible:
+webpage-in-a-browser → spawn-and-drive-the-served-command is exactly the
+exposure, but flipping the default to `--sameorigin` breaks legitimate
+non-browser automation and every existing quick-start. So the fix is a
+prominent stderr banner when no policy is configured — what the exposure is,
+the risk of changing nothing, the three options, and a dated announcement
+that a future version WILL default to `--sameorigin` — plus `--anyorigin` as
+an explicit, validated opt-in that silences it. The flag matters more than
+the warning: when the default flips, `--anyorigin` is already the migration
+path and already in the wild.
+
+Banner-on-stderr was a correction worth noting: it bypasses the log
+machinery by design (security notice, not a log line), so it must not live in
+the stdout log stream — daemons run `websocketd > access.log`, and a stdout
+banner would be buried exactly where "hard to miss" must hold.
+
+Also closed the remaining A10 INFO items (panic guard, WriteHeader noise,
+64KB binary buffer, crypto-random UNIQUE_ID) and recorded WONTFIX rationale
+for the rest: stdout line buffering (the operator's own child can exhaust
+memory unaided — the pipe adds no power), reverselookup DNS (opt-in, rare;
+timebox if it ever matters), directory listings (operator chose the root).
+
 ## 2026-08-28 — Closing out the audit's low-severity items (#472–#475)
 
 Follow-up to the audit remediation above, one commit per issue. Two calls
