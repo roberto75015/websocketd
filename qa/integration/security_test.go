@@ -352,3 +352,31 @@ func TestSEC018_AnyOriginConflictsWithPolicies(t *testing.T) {
 		}
 	}
 }
+
+// TestSEC020_NoSuperfluousWriteHeaderOnRejectedUpgrade verifies that a
+// rejected WebSocket upgrade doesn't make the net/http server log a
+// "superfluous response.WriteHeader" error. gorilla's Upgrade has already
+// written its 403 by the time the handler saw the error, so the handler's
+// follow-up http.Error wrote the response twice (audit finding A10).
+func TestSEC020_NoSuperfluousWriteHeaderOnRejectedUpgrade(t *testing.T) {
+	t.Parallel()
+	s := startServerOpts(t, []string{"--sameorigin"}, "echo")
+
+	headers := http.Header{}
+	headers.Set("Origin", "http://evil.example")
+	_, resp, err := s.TryConnect("/", headers)
+	if err == nil {
+		t.Fatal("cross-origin connection should be rejected")
+	}
+	if resp == nil || resp.StatusCode != 403 {
+		t.Errorf("expected 403, got %v", resp)
+	}
+
+	// The double-write happens during the handler, i.e. before the response
+	// reaches this point, but give the server's stderr copier a grace period
+	// before asserting.
+	time.Sleep(300 * time.Millisecond)
+	if out := s.Stderr(); strings.Contains(out, "superfluous response.WriteHeader") {
+		t.Errorf("net/http logged a superfluous WriteHeader on a rejected upgrade:\n%s", out)
+	}
+}

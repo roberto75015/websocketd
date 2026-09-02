@@ -149,8 +149,10 @@ func (h *WebsocketdServer) serveWebSocket(w http.ResponseWriter, req *http.Reque
 	}
 	conn, err := upgrader.Upgrade(w, req, headers)
 	if err != nil {
+		// gorilla's Upgrade has already written its error response (403 for
+		// a rejected origin, 400 for a bad handshake), so writing another one
+		// here only made net/http log "superfluous response.WriteHeader".
 		log.Access("session", "Unable to Upgrade: %s", err)
-		http.Error(w, "500 Internal Error", 500)
 		return true
 	}
 

@@ -1,5 +1,10 @@
 Version 0.5.0 (Apr 26, 2026)
 
+* Fix: rejected WebSocket upgrades no longer make the HTTP server log a
+  spurious "superfluous response.WriteHeader" error. gorilla's upgrade had
+  already written the client's 403/400; the handler wrote the response a
+  second time. Client-visible behavior is unchanged
+
 * Change: per-connection ids (the UNIQUE_ID environment variable) are now
   crypto-random hex instead of a timestamp; a UnixNano id was guessable and
   coarse enough to collide under bursts
