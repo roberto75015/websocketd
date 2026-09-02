@@ -190,10 +190,49 @@ func redirectLocation(clientHost, listenAddr string, ssl bool) string {
 	return scheme + "://" + net.JoinHostPort(host, port) + "/"
 }
 
+// originPolicyWarning is printed at startup when no origin policy is
+// configured (audit finding A2: the default accepts any origin, so any web
+// page that can reach the server can drive the commands it serves). It is
+// printed directly, unconditionally of --loglevel, because it is a security
+// notice rather than a log line, and it is the one warning this tool must
+// never let anyone miss. --anyorigin, --sameorigin or --origin silence it.
+const originPolicyWarning = `
+================================================================================
+  SECURITY WARNING: no origin policy is configured.
+================================================================================
+
+  This websocketd accepts WebSocket connections from ANY origin. Any web
+  page open in any browser that can reach this server can connect to every
+  command it serves: start processes, send them input, and read their
+  output. Browsers do not restrict cross-origin WebSocket connections -
+  restricting them is the server's job, and this server currently does not.
+
+  Your options:
+
+    --sameorigin               Only accept upgrades whose Origin matches the
+                               request Host (recommended for local and dev
+                               use).
+    --origin=host[:port][,...] Only accept upgrades from the listed origins,
+                               e.g. --origin=https://myapp.example.com
+    --anyorigin                Keep the current permissive behavior and
+                               silence this warning.
+
+  If you change nothing: any website you (or anyone using this machine) visit
+  while this server is running can drive the commands you are serving.
+
+  NOTE: a future version of websocketd will default to --sameorigin. If you
+  rely on the current behavior, pass --anyorigin explicitly to keep it.
+================================================================================
+`
+
 func main() {
 	config := parseCommandLine()
 
 	log := libwebsocketd.RootLogScope(config.LogLevel, logfunc)
+
+	if !config.SameOrigin && config.AllowOrigins == nil && !config.AnyOrigin {
+		fmt.Print(originPolicyWarning)
+	}
 
 	for _, o := range schemelessOriginWarnings(config.Ssl, config.AllowOrigins) {
 		log.Error("server", "--origin=%q has no scheme, so it also accepts insecure http origins; use \"https://%s\" to require TLS", o, o)

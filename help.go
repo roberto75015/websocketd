@@ -60,6 +60,15 @@ Options:
                                  Origin header does not match to requested HTTP
                                  Host. Default: false.
 
+  --anyorigin={true,false}       Explicitly accept upgrades from any origin,
+                                 which is the current default behavior, and
+                                 silence the origin-policy startup warning.
+                                 Cannot be combined with --sameorigin or
+                                 --origin. Note: a future version of websocketd
+                                 will default to --sameorigin; pass --anyorigin
+                                 to keep this behavior.
+                                 Default: false.
+
   --origin=[scheme://]host[:port][,...]
                                  Restrict (HTTP 403) protocol upgrades if the
                                  Origin header does not match one of the listed

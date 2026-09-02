@@ -1,5 +1,14 @@
 Version 0.5.0 (Apr 26, 2026)
 
+* Security: websocketd now prints a prominent startup warning when no origin
+  policy is configured (--sameorigin/--origin). Without a policy, any web page
+  open in any browser that can reach the server can connect and drive the
+  commands it serves - browsers do not restrict cross-origin WebSocket
+  connections. A new --anyorigin flag explicitly opts in to the current
+  permissive behavior and silences the warning. Announced behavior change
+  for a future release: websocketd will then default to --sameorigin, and
+  setups that rely on accepting any origin should pass --anyorigin
+
 Breaking changes — read before upgrading:
 
 * Breaking change: --origin port matching is now strict. A portless allow-list

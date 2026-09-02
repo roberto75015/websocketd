@@ -382,3 +382,31 @@ func TestParseSocketMode(t *testing.T) {
 		}
 	}
 }
+
+// TestValidateAnyOrigin covers the --anyorigin conflict rules: it is an
+// explicit opt-in to permissive behavior and cannot be combined with flags
+// that restrict origins.
+func TestValidateAnyOrigin(t *testing.T) {
+	tests := []struct {
+		name        string
+		anyOrigin   bool
+		sameOrigin  bool
+		allowOrigin []string
+		wantErr     bool
+	}{
+		{"anyorigin alone", true, false, nil, false},
+		{"anyorigin with sameorigin", true, true, nil, true},
+		{"anyorigin with origin list", true, false, []string{"a.com"}, true},
+		{"no flags at all", false, false, nil, false},
+		{"sameorigin alone", false, true, nil, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateAnyOrigin(tt.anyOrigin, tt.sameOrigin, tt.allowOrigin)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateAnyOrigin(%v, %v, %v) error = %v, wantErr %v",
+					tt.anyOrigin, tt.sameOrigin, tt.allowOrigin, err, tt.wantErr)
+			}
+		})
+	}
+}

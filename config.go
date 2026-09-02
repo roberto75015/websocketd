@@ -155,6 +155,16 @@ func validateBinaryPassStderr(binary, passStderr bool) error {
 	return nil
 }
 
+// validateAnyOrigin checks that --anyorigin is not combined with an actual
+// origin policy. The flags say opposite things, and silently preferring one
+// would hide operator confusion.
+func validateAnyOrigin(anyOrigin, sameOrigin bool, allowOrigins []string) error {
+	if anyOrigin && (sameOrigin || allowOrigins != nil) {
+		return fmt.Errorf("--anyorigin means 'accept any origin' and cannot be combined with --sameorigin or --origin, which restrict it")
+	}
+	return nil
+}
+
 // validateMaxFrameSize rejects negative --maxframesize values. The read
 // limit is only applied for positive values, so a negative value silently
 // meant "unlimited" — the one value an operator can pass that quietly
@@ -270,6 +280,7 @@ func parseCommandLine() *Config {
 	devConsoleFlag := flag.Bool("devconsole", false, "Enable development console (cannot be used in conjunction with --staticdir)")
 	passEnvFlag := flag.String("passenv", defaultPassEnv[runtime.GOOS], "List of envvars to pass to subprocesses (others will be cleaned out)")
 	sameOriginFlag := flag.Bool("sameorigin", false, "Restrict upgrades if origin and host headers differ")
+	anyOriginFlag := flag.Bool("anyorigin", false, "Explicitly accept any origin (the current default) and silence the origin-policy startup warning")
 	allowOriginsFlag := flag.String("origin", "", "Restrict upgrades if origin does not match the list")
 
 	headers := Arglist(make([]string, 0))
@@ -380,6 +391,13 @@ func parseCommandLine() *Config {
 		config.AllowOrigins = strings.Split(*allowOriginsFlag, ",")
 	}
 	config.SameOrigin = *sameOriginFlag
+	config.AnyOrigin = *anyOriginFlag
+
+	// Validate --anyorigin against actual origin policies
+	if err := validateAnyOrigin(*anyOriginFlag, *sameOriginFlag, config.AllowOrigins); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
 
 	// Resolve command or script directory
 	args := flag.Args()

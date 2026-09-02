@@ -283,3 +283,72 @@ func TestSEC014_OriginPortMatching(t *testing.T) {
 		t.Errorf("--origin=trusted.com:* must accept any port: %v", err)
 	}
 }
+
+// TestSEC015_OriginPolicyWarning verifies the hard-to-miss startup warning:
+// with no origin policy configured, websocketd must say so loudly, explain the
+// options, and announce the future --sameorigin default (audit finding A2).
+func TestSEC015_OriginPolicyWarning(t *testing.T) {
+	t.Parallel()
+	s := startServer(t, "echo") // no --sameorigin/--origin/--anyorigin
+	out := s.Stdout()
+	for _, want := range []string{
+		"SECURITY WARNING",
+		"--sameorigin",
+		"--origin=",
+		"--anyorigin",
+		"future version of websocketd will default to --sameorigin",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("origin-policy warning missing %q in server stdout:\n%s", want, out)
+		}
+	}
+}
+
+// TestSEC016_OriginPolicyWarningSilenced verifies the warning appears only
+// when no policy is configured: --sameorigin, --origin, and an explicit
+// --anyorigin all silence it.
+func TestSEC016_OriginPolicyWarningSilenced(t *testing.T) {
+	t.Parallel()
+	for _, flags := range [][]string{
+		{"--sameorigin"},
+		{"--origin=example.com"},
+		{"--anyorigin"},
+	} {
+		s := startServerOpts(t, flags, "echo")
+		if out := s.Stdout(); strings.Contains(out, "SECURITY WARNING") {
+			t.Errorf("warning printed despite %v", flags)
+		}
+	}
+}
+
+// TestSEC017_AnyOriginKeepsPermissiveDefault verifies --anyorigin explicitly
+// retains the accept-any-origin behavior it promises.
+func TestSEC017_AnyOriginKeepsPermissiveDefault(t *testing.T) {
+	t.Parallel()
+	s := startServerOpts(t, []string{"--anyorigin"}, "echo")
+	headers := http.Header{}
+	headers.Set("Origin", "http://evil.example")
+	ws, _, err := s.TryConnect("/", headers)
+	if err != nil {
+		t.Fatalf("--anyorigin must accept any origin: %v", err)
+	}
+	defer ws.Close()
+	ws.Send("hello")
+	ws.ExpectMessage("hello")
+}
+
+// TestSEC018_AnyOriginConflictsWithPolicies verifies --anyorigin cannot be
+// combined with --sameorigin or --origin: the flags say opposite things, and
+// a silent precedence rule would hide operator confusion.
+func TestSEC018_AnyOriginConflictsWithPolicies(t *testing.T) {
+	t.Parallel()
+	for _, flags := range []string{"--sameorigin", "--origin=example.com"} {
+		_, stderr, code := runWebsocketd(t, append([]string{"--anyorigin"}, flags)...)
+		if code == 0 {
+			t.Errorf("--anyorigin combined with %s was accepted (exit 0)", flags)
+		}
+		if !strings.Contains(stderr, "anyorigin") {
+			t.Errorf("expected an error naming the conflict with %s, got: %q", flags, stderr)
+		}
+	}
+}
