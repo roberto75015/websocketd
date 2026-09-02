@@ -6,6 +6,8 @@
 package libwebsocketd
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -199,6 +201,16 @@ func checkPathBoundary(path, boundary string) error {
 	return nil
 }
 
+// generateId produces the per-connection identifier exposed as UNIQUE_ID.
+// Crypto-random rather than timestamp-derived: a UnixNano id is guessable
+// (one connection's id narrows the next one to nanoseconds) and coarse
+// enough to collide under bursts. Falls back to the timestamp only if the
+// system CSPRNG is unavailable, which is not a condition worth refusing
+// connections over.
 func generateId() string {
-	return strconv.FormatInt(time.Now().UnixNano(), 10)
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return strconv.FormatInt(time.Now().UnixNano(), 10)
+	}
+	return hex.EncodeToString(b)
 }

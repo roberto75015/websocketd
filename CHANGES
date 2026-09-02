@@ -1,5 +1,9 @@
 Version 0.5.0 (Apr 26, 2026)
 
+* Change: per-connection ids (the UNIQUE_ID environment variable) are now
+  crypto-random hex instead of a timestamp; a UnixNano id was guessable and
+  coarse enough to collide under bursts
+
 * Security: websocketd now prints a prominent startup warning when no origin
   policy is configured (--sameorigin/--origin). Without a policy, any web page
   open in any browser that can reach the server can connect and drive the
