@@ -59,6 +59,12 @@ Update `CHANGES` before committing if the change affects:
 
 Latest version goes at the top. Follow the existing format.
 
+Classification: "Breaking change" is reserved for changes that require
+operators to act before upgrading (config migrations, removed/renamed flags,
+tightened accept criteria). Bug fixes that observably change behavior stay
+classified as fixes — fixing a bug isn't breaking a promise. Leading a
+version's entry with a "Breaking changes" block is fine; keep it honest.
+
 ## License headers
 
 Every Go source file starts with the 4-line BSD copyright header. New files
