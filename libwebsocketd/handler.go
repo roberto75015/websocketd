@@ -131,6 +131,13 @@ func GetURLInfo(path string, config *Config) (*URLInfo, error) {
 		return &URLInfo{"/", path, ""}, nil
 	}
 
+	// The net/http ServeMux normally guarantees a leading slash, but
+	// WebsocketdServer.ServeHTTP is an exported http.Handler and can be
+	// embedded without one - and ""[1:] would panic (audit finding A10).
+	if len(path) < 1 || path[0] != '/' {
+		return nil, ErrScriptNotFound
+	}
+
 	parts := strings.Split(path[1:], "/")
 	urlInfo := &URLInfo{}
 
