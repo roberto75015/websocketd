@@ -157,7 +157,13 @@ func (pe *ProcessEndpoint) readTextOutput() {
 
 func (pe *ProcessEndpoint) readBinaryOutput() {
 	defer close(pe.output)
-	buf := make([]byte, 10*1024*1024)
+	// 64KB matches the largest chunk a pipe read can return (the kernel
+	// hands out at most the pipe capacity per read), so anything larger is
+	// virtual-memory pressure that can never be touched: 10MB x 1024 default
+	// --maxforks looked like 10GB of RSS while measuring ~300KB per connection
+	// (audit finding A10). Multi-chunk relaying is covered by
+	// TestCLI016_BinaryModeLargePayload.
+	buf := make([]byte, 64*1024)
 	for {
 		n, err := pe.process.stdout.Read(buf)
 		if err != nil {

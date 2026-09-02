@@ -372,3 +372,41 @@ func TestCLI014_BinaryModeFlag(t *testing.T) {
 		t.Errorf("binary echo: sent %d bytes, got %d", len(data), len(recv))
 	}
 }
+
+// TestCLI016_BinaryModeLargePayload covers multi-chunk binary relaying: a
+// 256KB payload must arrive byte-identical through the process's pipes. It
+// guards the binary reader's chunked relay path (pipe reads return at most
+// the pipe capacity per read), including after its buffer was right-sized
+// from 10MB to 64KB (audit finding A10) - chunk boundaries may differ, the
+// bytes may not.
+func TestCLI016_BinaryModeLargePayload(t *testing.T) {
+	t.Parallel()
+	s := startServerOpts(t, []string{"--binary"}, "binary-echo")
+	ws := s.Connect("/")
+	defer ws.Close()
+
+	payload := make([]byte, 256*1024)
+	for i := range payload {
+		payload[i] = byte(i)
+	}
+	ws.SendBinary(payload)
+
+	got := make([]byte, 0, len(payload))
+	deadline := time.Now().Add(15 * time.Second)
+	for len(got) < len(payload) {
+		ws.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+		_, chunk, err := ws.conn.ReadMessage()
+		if err != nil {
+			t.Fatalf("receive failed after %d bytes: %v", len(got), err)
+		}
+		got = append(got, chunk...)
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out after %d of %d bytes", len(got), len(payload))
+		}
+	}
+	for i := range payload {
+		if got[i] != payload[i] {
+			t.Fatalf("payload diverged at byte %d: got %d, want %d", i, got[i], payload[i])
+		}
+	}
+}
