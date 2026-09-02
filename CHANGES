@@ -16,13 +16,6 @@ Breaking changes — read before upgrading:
 
   Entries with an explicit port are unchanged.
 
-* Breaking change: session teardown now kills the wrapped process's whole
-  process group (a final SIGKILL sweep once the direct child is gone). A
-  script's background children no longer survive the client disconnecting.
-  To migrate: children that must outlive the session must start their own
-  session (setsid), which is how a process has always said "not my parent's
-  lifetime".
-
 The rest of this release is backward-compatible:
 
 * New: --socketmode=0700-style flag pins the Unix socket file's permissions
@@ -54,13 +47,13 @@ The rest of this release is backward-compatible:
   a single small message, whenever the wrapped program echoes input on
   stderr. Long stderr lines are now relayed (and logged) as consecutive
   chunks instead
-* Security: session teardown now signals the wrapped process's whole process
+* Fix: session teardown now signals the wrapped process's whole process
   group (and delivers a final SIGKILL to anything left in it once the direct
   child is gone). Previously only the direct child was signaled, so a script
   could spawn background children that survived the connection — and, by
   holding the inherited pipes, kept the session and its --maxforks slot
-  occupied after the wrapped process exited. (This is the breaking change
-  detailed above.)
+  occupied after the wrapped process exited. Scripts that want a child to
+  outlive the session must start it in its own session (setsid)
 * Security: a client-supplied "Proxy" request header is no longer passed to the
   child process as HTTP_PROXY. Because many HTTP clients honour that variable, a
   remote caller could otherwise redirect the backend's outbound traffic through
