@@ -1,18 +1,34 @@
 Version 0.5.0 (Apr 26, 2026)
 
+Breaking changes — read before upgrading:
+
+* Breaking change: --origin port matching is now strict. A portless allow-list
+  entry used to match ANY port — --origin=trusted.com accepted
+  http://trusted.com:1337 as readily as http://trusted.com, vouching for
+  whatever else happens to listen on that host's other ports. It now matches
+  only the scheme's default port (80 for http, 443 for https; both, if the
+  entry carries no scheme). Affected origins get HTTP 403. To migrate: if a
+  portless entry relied on the implicit any-port match, append ":*" to it.
+
+      before: --origin=trusted.com          (accepted trusted.com on ANY port)
+      after:  --origin=trusted.com:*         (still accepts trusted.com on ANY port)
+      or:    --origin=trusted.com            (now accepts default ports only: 80/443)
+
+  Entries with an explicit port are unchanged.
+
+* Breaking change: session teardown now kills the wrapped process's whole
+  process group (a final SIGKILL sweep once the direct child is gone). A
+  script's background children no longer survive the client disconnecting.
+  To migrate: children that must outlive the session must start their own
+  session (setsid), which is how a process has always said "not my parent's
+  lifetime".
+
+The rest of this release is backward-compatible:
+
 * New: --socketmode=0700-style flag pins the Unix socket file's permissions
   instead of leaving them to the process umask, which under permissive umasks
   (0 is common in daemon contexts) left the socket connectable by any local
   user. The mode is applied immediately after binding
-
-* Security: --origin port matching is now strict. A portless entry used to
-  match ANY port, so --origin=trusted.com also accepted
-  http://trusted.com:1337 — vouching for whatever else happens to listen on
-  that host's other ports. Portless entries now match only the scheme's
-  default port (80 for http, 443 for https); append ":*" to an entry
-  (e.g. --origin=trusted.com:*) to restore any-port matching. Entries with
-  an explicit port are unaffected. This is a behavior change: setups relying
-  on the implicit any-port match must add ":*"
 
 * Fix: --maxframesize rejects negative values at startup instead of silently
   running unlimited. The read limit is only applied for positive values, so
@@ -43,8 +59,8 @@ Version 0.5.0 (Apr 26, 2026)
   child is gone). Previously only the direct child was signaled, so a script
   could spawn background children that survived the connection — and, by
   holding the inherited pipes, kept the session and its --maxforks slot
-  occupied after the wrapped process exited. Scripts that want a child to
-  outlive the session must start it in its own session (setsid)
+  occupied after the wrapped process exited. (This is the breaking change
+  detailed above.)
 * Security: a client-supplied "Proxy" request header is no longer passed to the
   child process as HTTP_PROXY. Because many HTTP clients honour that variable, a
   remote caller could otherwise redirect the backend's outbound traffic through
