@@ -148,9 +148,17 @@ func validateSSL(ssl bool, certFile, keyFile string) error {
 // set. Tagging binary chunks as JSON isn't implemented (--passstderr always
 // reads line by line), so combining the two would silently discard --binary
 // instead of behaving as either flag alone.
-func validateBinaryPassStderr(binary, passStderr bool) error {
+func validateBinaryPassStderr(binary bool, passStderr bool) error {
 	if binary && passStderr {
 		return fmt.Errorf("please only specify one of --binary and --passstderr")
+	}
+	return nil
+}
+
+// make sure binary and raw are not used together
+func validateRawBinary(raw bool, binary bool) error {
+	if binary && raw {
+		return fmt.Errorf("please only specify one of --binary and --raw")
 	}
 	return nil
 }
@@ -271,6 +279,7 @@ func parseCommandLine() *Config {
 	sslCaFlag := flag.String("sslca", "", "CA certificate file for client certificate verification (mutual TLS)")
 
 	// lib config options
+	rawFlag := flag.Bool("raw", false, "Set websocketd to experimental raw mode (like text mode but char by char instead of line by line)")
 	binaryFlag := flag.Bool("binary", false, "Set websocketd to experimental binary mode (default is line by line)")
 	passStderrFlag := flag.Bool("passstderr", false, "Forward STDERR to WebSocket clients as tagged JSON messages, alongside tagged STDOUT (mutually exclusive with --binary)")
 	reverseLookupFlag := flag.Bool("reverselookup", false, "Perform reverse DNS lookups on remote clients")
@@ -357,6 +366,12 @@ func parseCommandLine() *Config {
 		os.Exit(1)
 	}
 
+	// Validate --binary / --raw
+	if err := validateRawBinary(*rawFlag, *binaryFlag); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
+
 	// Validate --maxframesize
 	if err := validateMaxFrameSize(*maxFrameSizeFlag); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
@@ -371,6 +386,7 @@ func parseCommandLine() *Config {
 	config.PingInterval = time.Duration(*pingMsFlag) * time.Millisecond
 	config.MaxFrameSize = *maxFrameSizeFlag
 	config.Binary = *binaryFlag
+	config.Raw = *rawFlag
 	config.PassStderr = *passStderrFlag
 	config.ReverseLookup = *reverseLookupFlag
 	config.Ssl = *sslFlag
