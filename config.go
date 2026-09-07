@@ -11,53 +11,23 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/joewalnes/websocketd/internal/cliflags"
 	"github.com/joewalnes/websocketd/libwebsocketd"
 )
 
-// defaultMaxForks is a finite runaway backstop, not a capacity plan. Each fork
-// is a full subprocess, so unlimited (0) lets one client fork-bomb the host by
-// opening connections. A casual deployment never legitimately needs this many
-// concurrent long-lived connections; high-concurrency operators set --maxforks
-// (or 0 for unlimited) explicitly. See DIARY 2026-08-17.
-const defaultMaxForks = 1024
-
 type Config struct {
-	Addr              []string // TCP addresses to listen on. e.g. ":1234", "1.2.3.4:1234" or "[::1]:1234"
-	UnixSocket        string   // Path of a Unix domain socket to listen on, in addition to (or instead of) Addr
+	Addr              []string    // TCP addresses to listen on. e.g. ":1234", "1.2.3.4:1234" or "[::1]:1234"
+	UnixSocket        string      // Path of a Unix domain socket to listen on, in addition to (or instead of) Addr
 	SocketMode        os.FileMode // Permission bits to force on the Unix socket file (0 = follow umask)
-	MaxForks          int      // Number of allowable concurrent forks
+	MaxForks          int         // Number of allowable concurrent forks
 	LogLevel          libwebsocketd.LogLevel
 	RedirPort         int
 	CertFile, KeyFile string
 	*libwebsocketd.Config
-}
-
-type Arglist []string
-
-func (al *Arglist) String() string {
-	return fmt.Sprintf("%v", []string(*al))
-}
-
-func (al *Arglist) Set(value string) error {
-	*al = append(*al, value)
-	return nil
-}
-
-// Borrowed from net/http/cgi
-var defaultPassEnv = map[string]string{
-	"darwin":  "PATH,DYLD_LIBRARY_PATH",
-	"freebsd": "PATH,LD_LIBRARY_PATH",
-	"hpux":    "PATH,LD_LIBRARY_PATH,SHLIB_PATH",
-	"irix":    "PATH,LD_LIBRARY_PATH,LD_LIBRARYN32_PATH,LD_LIBRARY64_PATH",
-	"linux":   "PATH,LD_LIBRARY_PATH",
-	"openbsd": "PATH,LD_LIBRARY_PATH",
-	"solaris": "PATH,LD_LIBRARY_PATH,LD_LIBRARY_PATH_32,LD_LIBRARY_PATH_64",
-	"windows": "PATH,SystemRoot,COMSPEC,PATHEXT,WINDIR",
 }
 
 // schemelessOriginWarnings returns the --origin entries that carry no scheme
@@ -130,8 +100,14 @@ func wantsUnixSocketOnly(unixSocket string, portFlag int, addrlist []string, red
 	return unixSocket != "" && portFlag == 0 && len(addrlist) == 0 && redirPort == 0
 }
 
-// validateSSL checks that SSL-related flags are consistent.
-func validateSSL(ssl bool, certFile, keyFile string) error {
+// validateSSL checks that SSL-related flags are consistent. In particular,
+// --sslca requires --ssl: --sslca enables mutual TLS (verifying a client
+// certificate during the handshake), which only exists when the listener
+// itself is running TLS. Without --ssl there is no handshake to verify a
+// client certificate in, so --sslca alone used to be accepted and silently
+// have no effect, serving plain HTTP with no client verification (issue
+// #477).
+func validateSSL(ssl bool, certFile, keyFile, caFile string) error {
 	if ssl {
 		if certFile == "" || keyFile == "" {
 			return fmt.Errorf("please specify both --sslcert and --sslkey when requesting --ssl")
@@ -139,6 +115,9 @@ func validateSSL(ssl bool, certFile, keyFile string) error {
 	} else {
 		if certFile != "" || keyFile != "" {
 			return fmt.Errorf("you should not be using --ssl* flags when there is no --ssl option")
+		}
+		if caFile != "" {
+			return fmt.Errorf("--sslca requires --ssl (mutual TLS has no effect without a TLS listener); add --ssl with --sslcert and --sslkey, or drop --sslca")
 		}
 	}
 	return nil
@@ -240,57 +219,29 @@ func validateDir(dir, label string) error {
 	return nil
 }
 
+// exitWithError prints err to stderr and exits with status 1. It is the
+// common tail of every parseCommandLine validation: report and stop.
+func exitWithError(err error) {
+	fmt.Fprintf(os.Stderr, "%s\n", err)
+	os.Exit(1)
+}
+
+// exitWithUsageError is exitWithError plus the short usage summary, for
+// validation failures where reminding the operator of the flags helps.
+func exitWithUsageError(err error) {
+	fmt.Fprintf(os.Stderr, "%s\n", err)
+	ShortHelp()
+	os.Exit(1)
+}
+
 func parseCommandLine() *Config {
 	var mainConfig Config
 	var config libwebsocketd.Config
 
-	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	flag.CommandLine.Usage = func() {}
+	fv := cliflags.Register()
+	flag.CommandLine = fv.FS
 
-	// If adding new command line options, also update the help text in help.go.
-	// The flag library's auto-generate help message isn't pretty enough.
-
-	addrlist := Arglist(make([]string, 0, 1)) // pre-reserve for 1 address
-	flag.Var(&addrlist, "address", "Interfaces to bind to (e.g. 127.0.0.1 or [::1]).")
-
-	// server config options
-	portFlag := flag.Int("port", 0, "HTTP port to listen on")
-	unixSocketFlag := flag.String("unixsocket", "", "Path of a Unix domain socket to listen on, in addition to (or instead of) --address/--port")
-	socketModeFlag := flag.String("socketmode", "", "Octal permission bits to force on the --unixsocket file (e.g. 0700); default follows umask")
-	versionFlag := flag.Bool("version", false, "Print version and exit")
-	licenseFlag := flag.Bool("license", false, "Print license and exit")
-	logLevelFlag := flag.String("loglevel", "access", "Log level, one of: debug, trace, access, info, error, fatal")
-	sslFlag := flag.Bool("ssl", false, "Use TLS on listening socket (see also --sslcert and --sslkey)")
-	sslCert := flag.String("sslcert", "", "Should point to certificate PEM file when --ssl is used")
-	sslKey := flag.String("sslkey", "", "Should point to certificate private key file when --ssl is used")
-	maxForksFlag := flag.Int("maxforks", defaultMaxForks, "Max forks, zero means unlimited")
-	closeMsFlag := flag.Uint("closems", 0, "Time to start sending signals (0 never)")
-	pingMsFlag := flag.Uint("pingms", 0, "WebSocket ping interval in milliseconds (0 disables)")
-	maxFrameSizeFlag := flag.Int64("maxframesize", 1<<20, "Max inbound WebSocket message size in bytes (0 = unlimited)")
-	redirPortFlag := flag.Int("redirport", 0, "HTTP port to redirect to canonical --port address")
-	sslCaFlag := flag.String("sslca", "", "CA certificate file for client certificate verification (mutual TLS)")
-
-	// lib config options
-	binaryFlag := flag.Bool("binary", false, "Set websocketd to experimental binary mode (default is line by line)")
-	passStderrFlag := flag.Bool("passstderr", false, "Forward STDERR to WebSocket clients as tagged JSON messages, alongside tagged STDOUT (mutually exclusive with --binary)")
-	reverseLookupFlag := flag.Bool("reverselookup", false, "Perform reverse DNS lookups on remote clients")
-	scriptDirFlag := flag.String("dir", "", "Base directory for WebSocket scripts")
-	staticDirFlag := flag.String("staticdir", "", "Serve static content from this directory over HTTP")
-	cgiDirFlag := flag.String("cgidir", "", "Serve CGI scripts from this directory over HTTP")
-	devConsoleFlag := flag.Bool("devconsole", false, "Enable development console (cannot be used in conjunction with --staticdir)")
-	passEnvFlag := flag.String("passenv", defaultPassEnv[runtime.GOOS], "List of envvars to pass to subprocesses (others will be cleaned out)")
-	sameOriginFlag := flag.Bool("sameorigin", false, "Restrict upgrades if origin and host headers differ")
-	anyOriginFlag := flag.Bool("anyorigin", false, "Explicitly accept any origin (the current default) and silence the origin-policy startup warning")
-	allowOriginsFlag := flag.String("origin", "", "Restrict upgrades if origin does not match the list")
-
-	headers := Arglist(make([]string, 0))
-	headersWs := Arglist(make([]string, 0))
-	headersHttp := Arglist(make([]string, 0))
-	flag.Var(&headers, "header", "Custom headers for any response.")
-	flag.Var(&headersWs, "header-ws", "Custom headers for successful WebSocket upgrade responses.")
-	flag.Var(&headersHttp, "header-http", "Custom headers for all but WebSocket upgrade HTTP responses.")
-
-	err := flag.CommandLine.Parse(os.Args[1:])
+	err := fv.FS.Parse(os.Args[1:])
 	if err != nil {
 		if err == flag.ErrHelp {
 			PrintHelp()
@@ -307,12 +258,12 @@ func parseCommandLine() *Config {
 		os.Exit(1)
 	}
 
-	if *versionFlag {
+	if *fv.Version {
 		fmt.Printf("%s %s\n", HelpProcessName(), Version())
 		os.Exit(0)
 	}
 
-	if *licenseFlag {
+	if *fv.License {
 		fmt.Printf("%s %s\n", HelpProcessName(), Version())
 		fmt.Printf("%s\n", libwebsocketd.License)
 		os.Exit(0)
@@ -321,98 +272,89 @@ func parseCommandLine() *Config {
 	// Resolve port and addresses. A bare --unixsocket with no --port,
 	// --address, or --redirport means Unix-socket-only: skip the default
 	// TCP listener entirely rather than also binding ":80".
-	if !wantsUnixSocketOnly(*unixSocketFlag, *portFlag, []string(addrlist), *redirPortFlag) {
-		port := resolvePort(*portFlag, *sslFlag)
-		mainConfig.Addr = resolveAddresses([]string(addrlist), port)
+	if !wantsUnixSocketOnly(*fv.UnixSocket, *fv.Port, []string(fv.Addrlist), *fv.RedirPort) {
+		port := resolvePort(*fv.Port, *fv.SSL)
+		mainConfig.Addr = resolveAddresses([]string(fv.Addrlist), port)
 	}
-	mainConfig.UnixSocket = *unixSocketFlag
-	socketMode, err := parseSocketMode(*socketModeFlag)
+	mainConfig.UnixSocket = *fv.UnixSocket
+	socketMode, err := parseSocketMode(*fv.SocketMode)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
+		exitWithError(err)
 	}
 	mainConfig.SocketMode = socketMode
-	mainConfig.MaxForks = *maxForksFlag
-	mainConfig.RedirPort = *redirPortFlag
+	mainConfig.MaxForks = *fv.MaxForks
+	mainConfig.RedirPort = *fv.RedirPort
 
 	// Validate log level
-	mainConfig.LogLevel = libwebsocketd.LevelFromString(*logLevelFlag)
+	mainConfig.LogLevel = libwebsocketd.LevelFromString(*fv.LogLevel)
 	if mainConfig.LogLevel == libwebsocketd.LogUnknown {
-		fmt.Printf("Incorrect loglevel flag '%s'. Use --help to see allowed values.\n", *logLevelFlag)
+		fmt.Printf("Incorrect loglevel flag '%s'. Use --help to see allowed values.\n", *fv.LogLevel)
 		ShortHelp()
 		os.Exit(1)
 	}
 
 	// Validate SSL
-	if err := validateSSL(*sslFlag, *sslCert, *sslKey); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
+	if err := validateSSL(*fv.SSL, *fv.SSLCert, *fv.SSLKey, *fv.SSLCA); err != nil {
+		exitWithError(err)
 	}
-	mainConfig.CertFile = *sslCert
-	mainConfig.KeyFile = *sslKey
+	mainConfig.CertFile = *fv.SSLCert
+	mainConfig.KeyFile = *fv.SSLKey
 
 	// Validate --binary / --passstderr
-	if err := validateBinaryPassStderr(*binaryFlag, *passStderrFlag); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
+	if err := validateBinaryPassStderr(*fv.Binary, *fv.PassStderr); err != nil {
+		exitWithError(err)
 	}
 
 	// Validate --maxframesize
-	if err := validateMaxFrameSize(*maxFrameSizeFlag); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
+	if err := validateMaxFrameSize(*fv.MaxFrameSize); err != nil {
+		exitWithError(err)
 	}
 
 	// Build lib config
-	config.Headers = []string(headers)
-	config.HeadersWs = []string(headersWs)
-	config.HeadersHTTP = []string(headersHttp)
-	config.CloseMs = *closeMsFlag
-	config.PingInterval = time.Duration(*pingMsFlag) * time.Millisecond
-	config.MaxFrameSize = *maxFrameSizeFlag
-	config.Binary = *binaryFlag
-	config.PassStderr = *passStderrFlag
-	config.ReverseLookup = *reverseLookupFlag
-	config.Ssl = *sslFlag
-	config.SslCaFile = *sslCaFlag
-	config.ScriptDir = *scriptDirFlag
-	config.StaticDir = *staticDirFlag
-	config.CgiDir = *cgiDirFlag
-	config.DevConsole = *devConsoleFlag
+	config.Headers = []string(fv.Headers)
+	config.HeadersWs = []string(fv.HeadersWs)
+	config.HeadersHTTP = []string(fv.HeadersHttp)
+	config.CloseMs = *fv.CloseMs
+	config.PingInterval = time.Duration(*fv.PingMs) * time.Millisecond
+	config.MaxFrameSize = *fv.MaxFrameSize
+	config.Binary = *fv.Binary
+	config.PassStderr = *fv.PassStderr
+	config.ReverseLookup = *fv.ReverseLookup
+	config.Ssl = *fv.SSL
+	config.SslCaFile = *fv.SSLCA
+	config.ScriptDir = *fv.ScriptDir
+	config.StaticDir = *fv.StaticDir
+	config.CgiDir = *fv.CgiDir
+	config.DevConsole = *fv.DevConsole
 	config.StartupTime = time.Now()
 	config.ServerSoftware = fmt.Sprintf("websocketd/%s", Version())
 	config.HandshakeTimeout = time.Millisecond * 1500
 
 	// Build parent environment
-	config.ParentEnv = buildParentEnv(*passEnvFlag)
+	config.ParentEnv = buildParentEnv(*fv.PassEnv)
 
 	// Parse origins
-	if *allowOriginsFlag != "" {
-		config.AllowOrigins = strings.Split(*allowOriginsFlag, ",")
+	if *fv.AllowOrigins != "" {
+		config.AllowOrigins = strings.Split(*fv.AllowOrigins, ",")
 	}
-	config.SameOrigin = *sameOriginFlag
-	config.AnyOrigin = *anyOriginFlag
+	config.SameOrigin = *fv.SameOrigin
+	config.AnyOrigin = *fv.AnyOrigin
 
 	// Validate --anyorigin against actual origin policies
-	if err := validateAnyOrigin(*anyOriginFlag, *sameOriginFlag, config.AllowOrigins); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
+	if err := validateAnyOrigin(*fv.AnyOrigin, *fv.SameOrigin, config.AllowOrigins); err != nil {
+		exitWithError(err)
 	}
 
 	// Resolve command or script directory
-	args := flag.Args()
+	args := fv.FS.Args()
 	if len(args) < 1 && config.ScriptDir == "" && config.StaticDir == "" && config.CgiDir == "" {
-		fmt.Fprintf(os.Stderr, "Please specify COMMAND or provide --dir, --staticdir or --cgidir argument.\n")
-		ShortHelp()
-		os.Exit(1)
+		exitWithUsageError(fmt.Errorf("Please specify COMMAND or provide --dir, --staticdir or --cgidir argument."))
 	}
 
 	if len(args) > 0 {
 		commandName, commandArgs, err := resolveCommand(args, config.ScriptDir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			ShortHelp()
-			os.Exit(1)
+			exitWithUsageError(err)
 		}
 		config.CommandName = commandName
 		config.CommandArgs = commandArgs
@@ -422,24 +364,18 @@ func parseCommandLine() *Config {
 	if config.ScriptDir != "" {
 		scriptDir, err := resolveScriptDir(config.ScriptDir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			ShortHelp()
-			os.Exit(1)
+			exitWithUsageError(err)
 		}
 		config.ScriptDir = scriptDir
 		config.UsingScriptDir = true
 	}
 
 	if err := validateDir(config.CgiDir, "CGI dir"); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		ShortHelp()
-		os.Exit(1)
+		exitWithUsageError(err)
 	}
 
 	if err := validateDir(config.StaticDir, "static dir"); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		ShortHelp()
-		os.Exit(1)
+		exitWithUsageError(err)
 	}
 
 	mainConfig.Config = &config
