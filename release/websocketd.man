@@ -19,134 +19,159 @@ on GitHub!
 .SH OPTIONS
 A summary of the options supported by websocketd is included below.
 .PP
-\-\-port=PORT
+\-\-address
 .RS 4
-HTTP port to listen on.
+Interfaces to bind to (e.g. 127.0.0.1 or [::1]). Default: none (may be given multiple times). May be given more than once to bind several interfaces. Every address listens on the same \-\-port.
 .RE
 .PP
-\-\-address=ADDRESS
+\-\-anyorigin
 .RS 4
-Address to bind to (multiple options allowed). Use square brackets to specify IPv6 address. Default: "" (all)
+Explicitly accept any origin (the current default) and silence the origin-policy startup warning. Default: false. States the current permissive-origin default explicitly and silences the origin-policy warning websocketd prints to stderr at startup. Combining it with \-\-sameorigin or \-\-origin is rejected at startup, since those restrict what this flag accepts. A future websocketd release defaults to \-\-sameorigin instead. See security model (https://websocketd.com/docs/understanding/security-model/).
 .RE
 .PP
-\-\-unixsocket=PATH
+\-\-binary
 .RS 4
-Path of a Unix domain socket to listen on, in addition to (or instead of) \-\-address/\-\-port. If it's the only listen option given (no \-\-port, \-\-address, or \-\-redirport), no TCP listener is started at all. A leftover socket file from an unclean shutdown at the same path is removed automatically. Default: "" (do not listen on a Unix socket)
+Set websocketd to experimental binary mode (default is line by line). Default: false. Switches the WebSocket message type to binary frames instead of text, and removes the newline framing rule: output is forwarded in raw chunks as read, with no newline required, and no newline is appended to input. It does not allocate a pseudo-terminal, so a program that only behaves interactively under a terminal still does not do so here (issue #443). See message framing (https://websocketd.com/docs/understanding/message-framing/).
 .RE
 .PP
-\-\-sameorigin={true,false}
+\-\-cgidir=CGIDIR
 .RS 4
-Restrict (HTTP 403) protocol upgrades if the Origin header does not match to requested HTTP Host. Default: false.
+Serve CGI scripts from this directory over HTTP. Default: "" (empty). Scripts here run as CGI programs answering ordinary HTTP requests, not WebSocket upgrades. The request path must name the script file exactly; there is no extra path information after it. When the CGI directory sits inside the \-\-staticdir tree, its scripts also answer at their path there: with \-\-staticdir=/PAGE \-\-cgidir=/PAGE/cgi-bin, /cgi-bin/hello.sh runs the same script as /hello.sh. That position is decided by which directory each flag names rather than by how it is spelled, so a symlinked or differently-cased pair of paths routes the same way, and a \-\-cgidir genuinely outside the static tree is not brought inside it by a symlink there. It is worked out once and reused, so a deployment symlink flipped under a running server does not re-route requests; restart to pick up a new layout. Files in the CGI directory are never served as static content. The variables a CGI script receives differ from the WebSocket ones, because Go's net/http/cgi builds them: see environment variables (https://websocketd.com/docs/reference/environment-variables/). May be combined with \-\-dir, which serves a separate directory over WebSocket.
 .RE
 .PP
---origin=host[:port][,host[:port]...]
+\-\-closems=CLOSEMS
 .RS 4
-Restrict (HTTP 403) protocol upgrades if the Origin header does not match to one of the host and port combinations listed. If the port is not specified, any port number will match.  Default: "" (allow any origin)
-.RE
-.PP
-\-\-ssl \-\-sslcert=FILE \-\-sslkey=FILE
-.RS 4
-Listen for HTTPS socket instead of HTTP. All three options must be used or all of them should be omitted.
-.RE
-.PP
-\-\-sslca=FILE
-.RS 4
-Require clients to present a certificate signed by this CA (mutual TLS). Only takes effect together with \-\-ssl.
-.RE
-.PP
-\-\-redirport=PORT
-.RS 4
-Open alternative port and redirect HTTP traffic from it to canonical address (mostly useful for HTTPS-only configurations to redirect HTTP traffic).
-.RE
-.PP
-\-\-passenv VAR[,VAR...]
-.RS 4
-Lists environment variables allowed to be passed to executed scripts. Does not work for Windows since all the variables are kept there.
-.RE
-.PP
-\-\-binary={true,false}
-.RS 4
-Switches communication to binary: process reads are sent to the browser as blobs and all reads from the browser are immediately flushed to the process. Default: false
-.RE
-.PP
-\-\-passstderr
-.RS 4
-Forward the process's STDERR to WebSocket clients, tagged (alongside STDOUT) as JSON: {"stream":"stdout","data":"..."} or {"stream":"stderr","data":"..."}. STDERR is still logged server-side either way. Cannot be combined with \-\-binary. Default: false
-.RE
-.PP
-\-\-reverselookup={true,false}
-.RS 4
-Perform DNS reverse lookups on remote clients. Default: false
-.RE
-.PP
-\-\-maxforks=N
-.RS 4
-Limit number of processes that websocketd is able to execute with WS and CGI handlers. When maxforks is reached the server will reject requests that require executing another process (unlimited when 0 or negative). Default: 0
-.RE
-.PP
-\-\-closems=milliseconds
-.RS 4
-Specifies additional time a process needs to gracefully finish before websocketd sends termination signals to it. Default: 0 (signals sent after 100ms, 250ms, and 500ms of waiting)
-.RE
-.PP
-\-\-pingms=milliseconds
-.RS 4
-Send WebSocket pings at this interval and drop connections that miss pongs for twice that long, detecting dead clients. Default: 0 (disabled)
-.RE
-.PP
-\-\-header="..."
-.RS 4
-Set custom HTTP header on each response. For example: \-\-header="Server: someserver/0.0.1"
-.RE
-.PP
-\-\-header\-ws="..."
-.RS 4
-Same as \-\-header, but applies only to responses that upgrade the TCP connection to the WebSocket protocol.
-.RE
-.PP
-\-\-header\-http="..."
-.RS 4
-Same as \-\-header, but applies only to plain HTTP responses that do not upgrade to WebSocket.
-.RE
-.PP
-\-\-dir=DIR
-.RS 4
-Allow all scripts in the local directory to be accessed as WebSockets. If using this, option, then the standard program and args options should not be specified.
-.RE
-.PP
-\-\-staticdir=DIR
-.RS 4
-Serve static files in this directory over HTTP.
-.RE
-.PP
-\-\-cgidir=DIR
-.RS 4
-Serve CGI scripts in this directory over HTTP.
-.RE
-.PP
-\-\-help
-.RS 4
-Print help and exit.
-.RE
-.PP
-\-\-version
-.RS 4
-Print version and exit.
-.RE
-.PP
-\-\-license
-.RS 4
-Print license and exit.
+Extra time added to each of the first three waits before websocketd escalates to the next termination signal. Default: 0. The value is added to each of the first three steps of the teardown ladder: closing stdin (100 ms), SIGINT (250 ms), and SIGTERM (500 ms). The final SIGKILL step waits a fixed 1000 ms and is not affected. Signals are sent whatever the value; 0 means no extra delay, not no signals. See process lifecycle (https://websocketd.com/docs/understanding/process-lifecycle/).
 .RE
 .PP
 \-\-devconsole
 .RS 4
-Enable interactive development console. This enables you to access the websocketd server with a web-browser and use a user interface to quickly test WebSocket endpoints. For example, to test an endpoint at ws://[host]/foo, you can visit http://[host]/foo in your browser. This flag cannot be used in conjunction with \-\-staticdir or \-\-cgidir.
+Enable development console (cannot be used in conjunction with \-\-staticdir or \-\-cgidir). Default: false. All three of \-\-devconsole, \-\-staticdir and \-\-cgidir claim the same non-WebSocket HTTP surface, so websocketd exits with code 4 if the console is combined with either of the others. See dev console (https://websocketd.com/docs/reference/dev-console/).
 .RE
 .PP
-\-\-loglevel=LEVEL
+\-\-dir=DIR
 .RS 4
-Log level to use (default access). From most to least verbose: debug, trace, access, info, error, fatal
+Base directory for WebSocket scripts. Default: "" (empty). Any file under this directory is reachable as its own WebSocket endpoint, named after its path within the directory. The matched path becomes SCRIPT_NAME and anything left over becomes PATH_INFO. The executable bit is not checked when the path is resolved; whether the file runs is decided when websocketd launches it. A file reached through a symlink that leaves the directory is answered with 404. Files here are never served as static content, so a plain GET of a script that also sits inside a \-\-staticdir tree returns 404 rather than the script's source. A script keeps the URL \-\-dir gives it and gains no second one from where the directory sits: unlike \-\-cgidir, no URL prefix is derived for it inside \-\-staticdir. Giving both \-\-dir and a COMMAND is rejected at startup. May be combined with \-\-cgidir, which serves a separate directory as CGI over HTTP.
+.RE
+.PP
+\-\-header
+.RS 4
+Custom headers for any response. Default: none (may be given multiple times). May be given more than once. Added to successful WebSocket upgrade responses and to every response the WebSocket handler did not produce: the dev console, CGI, static files, and 404s. Error responses from the WebSocket handler itself, such as a rejected upgrade or a 429, carry no configured headers.
+.RE
+.PP
+\-\-header-http
+.RS 4
+Custom headers for all but WebSocket upgrade HTTP responses. Default: none (may be given multiple times). May be given more than once. Added to every response the WebSocket handler did not produce: the dev console, CGI, static files, and 404s.
+.RE
+.PP
+\-\-header-ws
+.RS 4
+Custom headers for successful WebSocket upgrade responses. Default: none (may be given multiple times). May be given more than once. Added to successful WebSocket upgrade responses only.
+.RE
+.PP
+\-\-help
+.RS 4
+Print help and exit. Default: false.
+.RE
+.PP
+\-\-license
+.RS 4
+Print license and exit. Default: false.
+.RE
+.PP
+\-\-loglevel=LOGLEVEL
+.RS 4
+Log level, one of: debug, trace, access, info, error, fatal, none. Default: access.
+.RE
+.PP
+\-\-maxforks=MAXFORKS
+.RS 4
+Max forks, zero means unlimited. Default: 1024. Each WebSocket connection and each CGI request is a full subprocess, and this caps how many may be live at once. Beyond the cap, an upgrade or CGI request is answered with 429 Too Many Requests rather than queued. Zero means unlimited. Operators running many concurrent long-lived connections have hit the default ceiling (issues #226, #228, #356). See the process model (https://websocketd.com/docs/understanding/process-model/).
+.RE
+.PP
+\-\-maxframesize=MAXFRAMESIZE
+.RS 4
+Max inbound WebSocket message size in bytes (0 = unlimited). Default: 1048576. An inbound WebSocket message larger than this limit is rejected and the connection is closed with status 1009 (message too big), which bounds how much one client can make websocketd buffer. Zero disables the limit. A negative value is rejected at startup with exit code 1, because it would otherwise read as unlimited and silently remove the limit (issue #472). See security model (https://websocketd.com/docs/understanding/security-model/).
+.RE
+.PP
+\-\-origin=ORIGIN
+.RS 4
+Restrict upgrades if origin does not match the list. Default: "" (empty). Entries are comma-separated. An entry with no scheme (just host[:port]) matches both http and https origins; an entry prefixed "https://" matches https only. An entry with an explicit port matches that port only. An entry with no port matches only the default port of a scheme it accepts, 80 for http and 443 for https. Appending ":*" to an entry matches any port on that host (issue #473). Combining this flag with \-\-anyorigin is rejected at startup. See security model (https://websocketd.com/docs/understanding/security-model/).
+.RE
+.PP
+\-\-passenv=PASSENV
+.RS 4
+List of envvars to pass to subprocesses (others will be cleaned out). Default: platform-dependent. The default is PATH plus the platform's shared library search path: PATH,LD_LIBRARY_PATH on Linux, PATH,DYLD_LIBRARY_PATH on macOS, and PATH,SystemRoot,COMSPEC,PATHEXT,WINDIR on Windows. Passing \-\-passenv REPLACES that default rather than adding to it, so \-\-passenv=API_KEY alone leaves the child with no PATH. A named variable that is empty or unset in websocketd's own environment is dropped, not forwarded as an empty string. HTTPS is always skipped, because that variable is websocketd's own \-\-ssl signal. This flag controls only which of websocketd's OWN environment variables reach the child; per-request CGI variables such as QUERY_STRING are built separately and are unaffected by it, a recurring point of confusion (issues #202, #223, #312, #391). See passing data into your script (https://websocketd.com/docs/how-to/patterns/pass-arguments/).
+.RE
+.PP
+\-\-passstderr
+.RS 4
+Forward STDERR to WebSocket clients as tagged JSON messages, alongside tagged STDOUT (mutually exclusive with \-\-binary). Default: false. The child's stdout and stderr both reach the client as JSON objects of the form {"stream":"stdout","data":"..."}, one per line of output, so the two streams can be told apart. Plain (untagged) output is no longer sent. stderr is still written to websocketd's own log as well. Combining it with \-\-binary is rejected at startup with exit code 1.
+.RE
+.PP
+\-\-pingms=PINGMS
+.RS 4
+WebSocket ping interval in milliseconds (0 disables). Default: 0. Zero disables pings entirely, and an idle connection is then never timed out; this is the default, and it accounts for a long run of "mystery disconnect" reports where the connection was in fact dropped by something in between (issues #37, #209, #260, #275, #439). A non-zero value sends a WebSocket ping every interval and sets a read deadline of twice the interval. Only an incoming pong resets that deadline, so a client that keeps sending data but never answers a ping is disconnected within 2x \-\-pingms just the same. See process lifecycle (https://websocketd.com/docs/understanding/process-lifecycle/).
+.RE
+.PP
+\-\-port=PORT
+.RS 4
+HTTP port to listen on. Default: 0. The default of 0 is not a real port: it means 80, or 443 when \-\-ssl is given. Every \-\-address binds this same port.
+.RE
+.PP
+\-\-redirport=REDIRPORT
+.RS 4
+HTTP port to redirect to canonical \-\-port address. Default: 0. Runs a second, plain HTTP listener on this port whose only response is a 301 redirect to the main listener. The redirect target keeps the host the client itself sent, along with the path and query it asked for, and rewrites only the scheme and the port, so a link into the site arrives at that link and it is not an open redirect.
+.RE
+.PP
+\-\-reverselookup
+.RS 4
+Perform reverse DNS lookups on remote clients. Default: false. Sets REMOTE_HOST to the result of a reverse DNS lookup of the client's address instead of the address itself. The lookup happens on every connection. It has no effect on \-\-cgidir requests, where net/http/cgi sets REMOTE_HOST to the client IP regardless. See environment variables (https://websocketd.com/docs/reference/environment-variables/).
+.RE
+.PP
+\-\-sameorigin
+.RS 4
+Restrict upgrades if origin and host headers differ. Default: false. Accepts an upgrade only when the host and port in the request's Origin header match the host and port in its Host header. A request with no Origin header is treated as origin "file:" and does not match. Combining it with \-\-anyorigin is rejected at startup. See security model (https://websocketd.com/docs/understanding/security-model/).
+.RE
+.PP
+\-\-socketmode=SOCKETMODE
+.RS 4
+Octal permission bits to force on the \-\-unixsocket file (e.g. 0700); default follows umask. Default: "" (empty). Applied with chmod to the socket file immediately after bind, so the window in which the umask-derived mode applies is as short as it can be. An empty value leaves the mode to the process umask; websocketd does not change the default socket permissions (issue #474). A value of 0, a value above 0777, and a value that is not octal are each rejected at startup with exit code 1. It applies only to \-\-unixsocket.
+.RE
+.PP
+\-\-ssl
+.RS 4
+Use TLS on listening socket (see also \-\-sslcert and \-\-sslkey). Default: false. Requires both \-\-sslcert and \-\-sslkey; giving \-\-ssl without them, or either of them without \-\-ssl, is rejected at startup with exit code 1. The listener negotiates TLS 1.2 or higher. The spawned process additionally receives HTTPS=on. See serve over wss:// (https://websocketd.com/docs/how-to/deploy/tls/).
+.RE
+.PP
+\-\-sslca=SSLCA
+.RS 4
+CA certificate file for client certificate verification (mutual TLS). Default: "" (empty). Turns on mutual TLS: client certificates are required and verified against this CA file. It requires \-\-ssl; giving \-\-sslca without \-\-ssl is rejected at startup with exit code 1, because mutual TLS has no handshake to verify a client certificate in without a TLS listener (issue #477). See serve over wss:// (https://websocketd.com/docs/how-to/deploy/tls/).
+.RE
+.PP
+\-\-sslcert=SSLCERT
+.RS 4
+Should point to certificate PEM file when \-\-ssl is used. Default: "" (empty). Read only when \-\-ssl is given. Giving it without \-\-ssl is rejected at startup with exit code 1.
+.RE
+.PP
+\-\-sslkey=SSLKEY
+.RS 4
+Should point to certificate private key file when \-\-ssl is used. Default: "" (empty). Read only when \-\-ssl is given. Giving it without \-\-ssl is rejected at startup with exit code 1.
+.RE
+.PP
+\-\-staticdir=STATICDIR
+.RS 4
+Serve static content from this directory over HTTP. Default: "" (empty). Four kinds of request are answered with 404 rather than served: a path with a segment beginning with "." (.git, .env, .ssh, ...); a directory with no index.html file, since directories are never listed; a file reached through a symlink that leaves the directory; and any file inside a \-\-dir or \-\-cgidir tree, whichever URL reaches it. That last refusal is dropped when \-\-staticdir names one of those directories itself, or a directory inside one. A first path segment of exactly .well-known is exempt from the dotfile rule, so ACME challenges and security.txt are still served; a dotfile nested deeper inside it is not. None of that vets the directory's contents: a secret under an ordinary name is still served, so point \-\-staticdir at a tree holding only what is meant to be public. Rejected together with \-\-devconsole. Why each of these is refused is in the security model (https://websocketd.com/docs/understanding/security-model/).
+.RE
+.PP
+\-\-unixsocket=UNIXSOCKET
+.RS 4
+Path of a Unix domain socket to listen on, in addition to (or instead of) \-\-address/\-\-port. Default: "" (empty). Served in addition to the TCP listener. When \-\-unixsocket is the only listening flag given, with no \-\-port, \-\-address, or \-\-redirport, no TCP listener is started at all. At startup a socket file already at the path is probed: if nothing is listening on it, it is removed as stale and rebound; if something is, websocketd exits with code 3 rather than making the running server unreachable. The file is not removed on exit.
+.RE
+.PP
+\-\-version
+.RS 4
+Print version and exit. Default: false.
 .RE
 .SH SEE ALSO
 .RS 2

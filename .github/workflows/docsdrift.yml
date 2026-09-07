@@ -1,0 +1,29 @@
+name: Docs drift
+on: [push, pull_request]
+jobs:
+  cli-flags-drift:
+    # Guards the single-sourcing promise made in the (now archived)
+    # docs-archive/MANUAL_TOOLING.md and since kept: the flag
+    # table in release/websocketd.man and docsite/content/reference/
+    # cli-flags.md are *generated* from the live flag.FlagSet
+    # (tools/gendocs, internal/cliflags), not hand-copied. Re-running the
+    # generator here and diffing against what's committed is what turns
+    # that promise into something CI actually enforces -- a flag whose
+    # name/default/usage changed without regenerating fails the build
+    # instead of quietly drifting.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+      - name: Regenerate CLI flag docs
+        run: go run ./tools/gendocs
+      - name: Fail if regenerating changed anything
+        run: |
+          if ! git diff --exit-code -- release/websocketd.man docsite/content/reference/cli-flags.md; then
+            echo
+            echo "release/websocketd.man and/or docsite/content/reference/cli-flags.md"
+            echo "are out of date. Run 'go run ./tools/gendocs' and commit the result."
+            exit 1
+          fi

@@ -22,7 +22,7 @@ a WebSocket server.
 
 Usage:
 
-  Export a single executable program a WebSocket server:
+  Export a single executable program as a WebSocket server:
     {{binary}} [options] COMMAND [command args]
 
   Or, export an entire directory of executables as WebSocket endpoints:
@@ -31,6 +31,7 @@ Usage:
 Options:
 
   --port=PORT                    HTTP port to listen on.
+                                 Default: 80 (443 with --ssl)
 
   --address=ADDRESS              Address to bind to (multiple options allowed)
                                  Use square brackets to specify IPv6 address.
@@ -50,15 +51,14 @@ Options:
   --socketmode=mode              Octal permission bits to force on the Unix
                                  socket file (e.g. 0700), applied immediately
                                  after binding. Without it the file follows the
-                                 process umask — which can leave the socket
-                                 connectable by other local users when the
-                                 umask is permissive (e.g. 0 in daemon
-                                 contexts). Default: umask.
+                                 process umask, which can leave the socket
+                                 connectable by other local users.
+                                 Default: umask.
 
-
-  --sameorigin={true,false}      Restrict (HTTP 403) protocol upgrades if the
-                                 Origin header does not match to requested HTTP
-                                 Host. Default: false.
+  --sameorigin={true,false}      Restrict (HTTP 403) protocol upgrades unless
+                                 the Origin header matches the requested HTTP
+                                 Host. A request that sends no Origin header
+                                 does not match. Default: false.
 
   --anyorigin={true,false}       Explicitly accept upgrades from any origin,
                                  which is the current default behavior, and
@@ -85,24 +85,27 @@ Options:
   --sslkey=FILE                  them should be omitted.
 
   --sslca=FILE                   Require clients to present a certificate
-                                 signed by this CA (mutual TLS). Only takes
-                                 effect together with --ssl.
+                                 signed by this CA (mutual TLS). Requires
+                                 --ssl; on its own it is rejected at startup.
 
-  --redirport=PORT               Open alternative port and redirect HTTP traffic
-                                 from it to canonical address (mostly useful
-                                 for HTTPS-only configurations to redirect HTTP
-                                 traffic)
+  --redirport=PORT               Open alternative port and 301-redirect HTTP
+                                 traffic from it to the canonical address
+                                 (mostly useful for HTTPS-only configurations).
+                                 Keeps the client's own host, path and query;
+                                 only the scheme and port change.
 
-  --passenv VAR[,VAR...]         Lists environment variables allowed to be
-                                 passed to executed scripts. Does not work for
-                                 Windows since all the variables are kept there.
-                                 The default includes PATH, so scripts — and
-                                 thus anyone who can make them run — learn the
-                                 operator's PATH layout.
+  --passenv VAR[,VAR...]         Environment variables to pass to executed
+                                 scripts. Replaces the default list rather than
+                                 adding to it, so name every variable you want,
+                                 including PATH. A variable that is unset or
+                                 empty in websocketd's own environment is not
+                                 passed on. Default: PATH plus the platform's
+                                 library search path.
 
-  --binary={true,false}          Switches communication to binary, process reads
-                                 send to browser as blobs and all reads from the
-                                 browser are immediately flushed to the process.
+  --binary={true,false}          Use binary WebSocket frames and drop the
+                                 newline framing: process output is forwarded
+                                 in chunks as it is read, and no newline is
+                                 appended to what the browser sends.
                                  Default: false
 
   --passstderr                   Forward the process's STDERR to WebSocket
@@ -112,17 +115,31 @@ Options:
                                  still logged server-side either way. Cannot
                                  be combined with --binary. Default: false
 
-  --reverselookup={true,false}   Perform DNS reverse lookups on remote clients.
-                                 Default: false
+  --reverselookup={true,false}   Set REMOTE_HOST from a reverse DNS lookup of
+                                 the client address instead of the address
+                                 itself. Default: false
 
-  --dir=DIR                      Allow all scripts in the local directory
-                                 to be accessed as WebSockets. If using this,
-                                 option, then the standard program and args
-                                 options should not be specified.
+  --dir=DIR                      Serve every file under this directory as its
+                                 own WebSocket endpoint, named by its path
+                                 within the directory. Files here are never
+                                 served as static content, unless --staticdir
+                                 names this directory or one inside it. Cannot
+                                 be combined with COMMAND.
 
   --staticdir=DIR                Serve static files in this directory over HTTP.
+                                 Directories are never listed. Dotfiles and
+                                 symlinks pointing out of the directory are
+                                 refused, as are files inside a --dir or
+                                 --cgidir tree.
 
   --cgidir=DIR                   Serve CGI scripts in this directory over HTTP.
+                                 The request path names the script within the
+                                 directory, so /hello.sh runs DIR/hello.sh.
+                                 If DIR is inside --staticdir, its path there
+                                 also works: with --staticdir=/PAGE
+                                 --cgidir=/PAGE/cgi-bin, /cgi-bin/hello.sh
+                                 runs the same script. Files in DIR are never
+                                 served as static content.
 
   --maxforks=N                   Limit number of processes that websocketd is
                                  able to execute with WS and CGI handlers.
@@ -136,33 +153,38 @@ Options:
                                  static/redirect requests.
 
   --maxframesize=bytes           Reject inbound WebSocket messages larger than
-                                 this, closing the connection (bounds per-client
-                                 memory use). Default: 1048576 (1 MiB). Set 0 to
-                                 disable the limit; negative values are rejected.
+                                 this, closing the connection with status 1009
+                                 (bounds per-client memory use). Set 0 to
+                                 disable the limit; a negative value is
+                                 rejected at startup.
+                                 Default: 1048576 (1 MiB)
 
-  --closems=milliseconds         Specifies additional time process needs to gracefully
-                                 finish before websocketd will send termination signals
-                                 to it. Signals go to the process's whole process group;
-                                 children that must outlive the session should start
-                                 their own session (setsid).
-                                 Default: 0 (signals sent after 100ms, 250ms,
-                                 and 500ms of waiting)
+  --closems=milliseconds         Extra time added to each of the first three
+                                 waits when shutting a process down: stdin
+                                 close (100ms), SIGINT (250ms), SIGTERM
+                                 (500ms). The final SIGKILL wait of 1000ms is
+                                 unaffected. Signals go to the process's whole
+                                 process group; children that must outlive the
+                                 session should start their own session
+                                 (setsid). Default: 0 (no extra delay)
 
   --pingms=milliseconds          Send WebSocket pings at this interval and drop
-                                 connections that miss pongs for twice that long,
-                                 detecting dead clients. Default: 0 (disabled)
+                                 a connection that has not answered with a pong
+                                 for twice that long. Only a pong resets that
+                                 deadline; other traffic from the client does
+                                 not. Default: 0 (no pings, no idle timeout)
 
-  --header="..."                 Set custom HTTP header to each answer. For
-                                 example: --header="Server: someserver/0.0.1"
+  --header="..."                 Set custom HTTP header on each response. May
+                                 be repeated. Error responses from the
+                                 WebSocket handler (403, 404, 429) carry no
+                                 configured headers. For example:
+                                 --header="Server: someserver/0.0.1"
 
-  --header-ws="...."             Same as --header, just applies to only those
-                                 responses that indicate upgrade of TCP connection
-                                 to a WebSockets protocol.
+  --header-ws="...."             Same as --header, but only on responses that
+                                 upgrade the connection to WebSocket.
 
-  --header-http="...."           Same as --header, just applies to only to plain
-                                 HTTP responses that do not indicate WebSockets
-                                 upgrade
-
+  --header-http="...."           Same as --header, but only on plain HTTP
+                                 responses that do not upgrade to WebSocket.
 
   --help                         Print help and exit.
 
@@ -182,7 +204,8 @@ Options:
 
   --loglevel=LEVEL               Log level to use (default access).
                                  From most to least verbose:
-                                 debug, trace, access, info, error, fatal
+                                 debug, trace, access, info, error, fatal.
+                                 Also accepts "none", which logs nothing.
 
 Full documentation at https://websocketd.com/
 
@@ -192,7 +215,7 @@ BSD license: Run '{{binary}} --license' for details.
 	short = `
 Usage:
 
-  Export a single executable program a WebSocket server:
+  Export a single executable program as a WebSocket server:
     {{binary}} [options] COMMAND [command args]
 
   Or, export an entire directory of executables as WebSocket endpoints:
