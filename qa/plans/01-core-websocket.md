@@ -7,6 +7,7 @@ Tests for the fundamental WebSocket connection lifecycle and messaging behavior.
 ## CORE-001: Basic WebSocket Connection
 
 **Priority**: P0
+**Automated**: `TestCORE001_BasicConnection` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with a simple echo script (`cat` or equivalent)
 
 **Steps**:
@@ -21,6 +22,7 @@ Tests for the fundamental WebSocket connection lifecycle and messaging behavior.
 ## CORE-002: Send and Receive Text Message
 
 **Priority**: P0
+**Automated**: `TestCORE001_BasicConnection` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with `cat`
 
 **Steps**:
@@ -36,6 +38,7 @@ Tests for the fundamental WebSocket connection lifecycle and messaging behavior.
 ## CORE-003: Multiple Messages in Sequence
 
 **Priority**: P0
+**Automated**: `TestCORE002_MultipleMessages` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with `cat`
 
 **Steps**:
@@ -52,6 +55,7 @@ Tests for the fundamental WebSocket connection lifecycle and messaging behavior.
 ## CORE-004: Server-Initiated Messages (STDOUT Output)
 
 **Priority**: P0
+**Automated**: `TestCORE003_ServerInitiatedMessages` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create a script `count.sh`:
 ```bash
 #!/bin/bash
@@ -72,6 +76,7 @@ done
 ## CORE-005: Client Disconnect
 
 **Priority**: P0
+**Automated**: `TestCORE004_ClientDisconnect` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with `cat`
 
 **Steps**:
@@ -88,6 +93,7 @@ done
 ## CORE-006: Server-Side Process Exit
 
 **Priority**: P0
+**Automated**: `TestCORE005_ServerProcessExit` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create a script that exits after one message:
 ```bash
 #!/bin/bash
@@ -109,6 +115,7 @@ exit 0
 ## CORE-007: Empty Message Handling
 
 **Priority**: P1
+**Automated**: `TestCORE006_EmptyMessage` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with `cat`
 
 **Steps**:
@@ -123,6 +130,7 @@ exit 0
 ## CORE-008: Binary Mode - Basic
 
 **Priority**: P1
+**Automated**: `TestCORE007_BinaryModeBasic`, `TestCORE008_BinaryFrameNotDoubled` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with `cat` in binary mode
 
 **Steps**:
@@ -140,6 +148,7 @@ exit 0
 ## CORE-009: Binary Mode - Large Payload
 
 **Priority**: P2
+**Automated**: `TestCLI016_BinaryModeLargePayload`, `TestPERF006_LargePayloadBinary` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with `cat` in binary mode
 
 **Steps**:
@@ -154,6 +163,7 @@ exit 0
 ## CORE-010: Text Mode - Line Buffering
 
 **Priority**: P0
+**Automated**: `TestCORE009_TextModeLineBuffering` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with `cat` in default (text) mode
 
 **Steps**:
@@ -169,6 +179,7 @@ exit 0
 ## CORE-011: Text Mode - Newline Stripping
 
 **Priority**: P1
+**Automated**: `TestCORE010_CRLFStripping` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create a script that outputs lines with different endings:
 ```bash
 #!/bin/bash
@@ -191,6 +202,7 @@ printf "no newline"
 ## CORE-012: Multiple Concurrent Connections
 
 **Priority**: P0
+**Automated**: `TestCORE011_ConcurrentConnections` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with `cat`
 
 **Steps**:
@@ -208,6 +220,7 @@ printf "no newline"
 ## CORE-013: Rapid Connect/Disconnect
 
 **Priority**: P2
+**Automated**: `TestCORE017_ReconnectAfterDisconnect`, `TestEDGE006_RapidReconnection` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with `cat`
 
 **Steps**:
@@ -223,6 +236,7 @@ printf "no newline"
 ## CORE-014: Large Text Message
 
 **Priority**: P2
+**Automated**: `TestCORE013_LargeTextMessage` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with `cat`
 
 **Steps**:
@@ -237,6 +251,7 @@ printf "no newline"
 ## CORE-015: Unicode Text Messages
 
 **Priority**: P1
+**Automated**: `TestCORE012_UnicodeMessages` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with `cat`
 
 **Steps**:
@@ -258,6 +273,7 @@ printf "no newline"
 ## CORE-016: WebSocket Close Frame
 
 **Priority**: P1
+**Automated**: `TestCORE016_WebSocketCloseFrame` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with `cat`
 
 **Steps**:
@@ -272,6 +288,7 @@ printf "no newline"
 ## CORE-017: WebSocket Ping/Pong
 
 **Priority**: P2
+**Automated**: `TestIssue456_PingPongKeepAlive`, `TestIssue456_NoPingByDefault`, `TestIssue456_DeadConnectionDetected` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with `cat`
 
 **Steps**:
@@ -286,6 +303,7 @@ printf "no newline"
 ## CORE-018: Connection After Process Crash
 
 **Priority**: P1
+**Automated**: `TestPROC006_ProcessExitNonZero`, `TestCORE017_ReconnectAfterDisconnect` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create a script that crashes:
 ```bash
 #!/bin/bash
@@ -319,6 +337,7 @@ exit 1
 ## CORE-020: Binary Mode Flag Variations
 
 **Priority**: P2
+**Automated**: `TestCLI014_BinaryModeFlag` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: None
 
 **Steps**:

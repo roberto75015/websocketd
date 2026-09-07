@@ -23,6 +23,7 @@ Tests for platform-specific behavior across Unix-like operating systems and arch
 ### MAC-002: macOS Apple Silicon (arm64)
 
 **Priority**: P0
+**Automated**: `.github/workflows/test.yml` job "test", macos-latest runner. Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: macOS with M1/M2/M3 processor
 
 **Steps**:
@@ -65,6 +66,7 @@ Tests for platform-specific behavior across Unix-like operating systems and arch
 ### LNX-001: Linux amd64 Basic Functionality
 
 **Priority**: P0
+**Automated**: `.github/workflows/test.yml` job "test", ubuntu-latest runner. Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Linux x86_64, linux_amd64 build
 
 **Steps**:
@@ -95,6 +97,7 @@ Tests for platform-specific behavior across Unix-like operating systems and arch
 ### LNX-003: Linux ARM64
 
 **Priority**: P1
+**Automated**: `.github/workflows/test.yml` job "test", ubuntu-24.04-arm runner. Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: ARM64 Linux system, linux_arm64 build
 
 **Steps**:
@@ -249,6 +252,7 @@ Tests for platform-specific behavior across Unix-like operating systems and arch
 ### XPLAT-002: Process Group Cleanup
 
 **Priority**: P1
+**Automated**: `TestPROC013_SessionTeardownKillsProcessGroup` (Unix only) (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. On each platform (macOS, Linux, Windows): run a script that spawns child processes

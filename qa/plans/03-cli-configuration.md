@@ -19,6 +19,7 @@ Tests for command-line flag parsing, argument validation, defaults, and startup 
 ## CLI-002: Custom Port
 
 **Priority**: P0
+**Automated**: `TestCLI001_CustomPort` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Run `websocketd --port=9090 cat`
@@ -31,6 +32,7 @@ Tests for command-line flag parsing, argument validation, defaults, and startup 
 ## CLI-003: Port Already in Use
 
 **Priority**: P1
+**Automated**: `TestCLI002_PortAlreadyInUse` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Start websocketd: `websocketd --port=8080 cat`
@@ -43,6 +45,7 @@ Tests for command-line flag parsing, argument validation, defaults, and startup 
 ## CLI-004: Invalid Port Number
 
 **Priority**: P2
+**Automated**: `TestResolvePort` (root package). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=99999 cat`
@@ -56,6 +59,7 @@ Tests for command-line flag parsing, argument validation, defaults, and startup 
 ## CLI-005: --address Binding (Localhost Only)
 
 **Priority**: P1
+**Automated**: `TestResolveAddresses` (root package). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --address=127.0.0.1 cat`
@@ -69,6 +73,7 @@ Tests for command-line flag parsing, argument validation, defaults, and startup 
 ## CLI-006: --address=0.0.0.0 (All Interfaces)
 
 **Priority**: P1
+**Automated**: `TestResolveAddresses` (root package). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --address=0.0.0.0 cat`
@@ -82,6 +87,7 @@ Tests for command-line flag parsing, argument validation, defaults, and startup 
 ## CLI-007: Multiple --address Flags
 
 **Priority**: P1
+**Automated**: `TestResolveAddresses` (root package). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --address=127.0.0.1 --address=192.168.1.x cat`
@@ -94,6 +100,7 @@ Tests for command-line flag parsing, argument validation, defaults, and startup 
 ## CLI-008: IPv6 Address
 
 **Priority**: P2
+**Automated**: `TestCLI014_RedirPortIPv6` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --address=[::1] cat`
@@ -106,6 +113,7 @@ Tests for command-line flag parsing, argument validation, defaults, and startup 
 ## CLI-009: Log Levels
 
 **Priority**: P1
+**Automated**: `TestLevelFromString`, `TestLogLevelFiltering`, `TestNewLevel` (libwebsocketd). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**: Test each level: debug, trace, access, info, error, fatal
 1. Start websocketd with `--loglevel=debug`, make a connection, observe output
@@ -126,6 +134,7 @@ Each level includes all levels above it in severity.
 ## CLI-010: --version Flag
 
 **Priority**: P0
+**Automated**: `TestCLI003_VersionFlag` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Run `websocketd --version`
@@ -137,6 +146,7 @@ Each level includes all levels above it in severity.
 ## CLI-011: --help Flag
 
 **Priority**: P0
+**Automated**: `TestCLI004_HelpFlag` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Run `websocketd --help`
@@ -150,6 +160,7 @@ Each level includes all levels above it in severity.
 ## CLI-012: --license Flag
 
 **Priority**: P2
+**Automated**: `TestCLI005_LicenseFlag` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Run `websocketd --license`
@@ -161,6 +172,7 @@ Each level includes all levels above it in severity.
 ## CLI-013: No Command and No --dir
 
 **Priority**: P0
+**Automated**: `TestResolveCommand`, `TestResolveScriptDir` (root package). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Run `websocketd --port=8080` (no command, no --dir)
@@ -172,6 +184,7 @@ Each level includes all levels above it in severity.
 ## CLI-014: --dir and Command Together
 
 **Priority**: P1
+**Automated**: `TestResolveCommand`, `TestResolveScriptDir` (root package). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Run `websocketd --port=8080 --dir=scripts/ cat`
@@ -183,6 +196,7 @@ Each level includes all levels above it in severity.
 ## CLI-015: --passenv Single Variable
 
 **Priority**: P1
+**Automated**: `TestCLI011_Passenv` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Set `MY_VAR=hello` in environment
 
 **Steps**:
@@ -196,6 +210,7 @@ Each level includes all levels above it in severity.
 ## CLI-016: --passenv Multiple Variables
 
 **Priority**: P1
+**Automated**: `TestCLI011_Passenv` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Set `VAR1=a`, `VAR2=b`, `VAR3=c`
 
 **Steps**:
@@ -209,6 +224,7 @@ Each level includes all levels above it in severity.
 ## CLI-017: --passenv Nonexistent Variable
 
 **Priority**: P2
+**Automated**: `TestCLI011_Passenv` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --passenv=DOES_NOT_EXIST env`
@@ -234,6 +250,7 @@ Each level includes all levels above it in severity.
 ## CLI-019: --header Custom HTTP Headers
 
 **Priority**: P1
+**Automated**: `TestCLI008_CustomHeaders` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --header="X-Custom: value" cat`
@@ -247,6 +264,7 @@ Each level includes all levels above it in severity.
 ## CLI-020: --header-ws vs --header-http
 
 **Priority**: P1
+**Automated**: `TestCLI009_HeaderWSOnly`, `TestCLI010_HeaderHTTPOnly` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --header-ws="X-WS: 1" --header-http="X-HTTP: 1" cat`
@@ -260,6 +278,7 @@ Each level includes all levels above it in severity.
 ## CLI-021: --sameorigin Flag
 
 **Priority**: P1
+**Automated**: `TestSEC001_SameOriginAccepted`, `TestSEC002_SameOriginRejected` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --sameorigin cat`
@@ -273,6 +292,7 @@ Each level includes all levels above it in severity.
 ## CLI-022: --origin Whitelist
 
 **Priority**: P1
+**Automated**: `TestSEC003_OriginWhitelistAccepted`, `TestSEC004_OriginWhitelistRejected` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --origin=example.com:8080 cat`
@@ -286,6 +306,7 @@ Each level includes all levels above it in severity.
 ## CLI-023: --devconsole Flag
 
 **Priority**: P1
+**Automated**: `TestCLI013_Devconsole`, `TestHTTP005_DevConsoleServing` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --devconsole cat`
@@ -298,6 +319,7 @@ Each level includes all levels above it in severity.
 ## CLI-024: --staticdir Flag
 
 **Priority**: P1
+**Automated**: `TestHTTP001_StaticFileServing` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create `static/index.html` with some content
 
 **Steps**:
@@ -312,6 +334,7 @@ Each level includes all levels above it in severity.
 ## CLI-025: --cgidir Flag
 
 **Priority**: P1
+**Automated**: `TestCGI001_ScriptExecuted` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create `cgi-bin/test.cgi` (executable, outputs HTTP headers + body)
 
 **Steps**:
@@ -325,6 +348,7 @@ Each level includes all levels above it in severity.
 ## CLI-026: --ssl Without Certificate Files
 
 **Priority**: P1
+**Automated**: `TestCLI007_SSLWithoutCert` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8443 --ssl cat` (no --sslcert, no --sslkey)
@@ -338,6 +362,7 @@ Each level includes all levels above it in severity.
 ## CLI-027: --ssl With Valid Cert
 
 **Priority**: P0
+**Automated**: `TestCLI006_SSLWithValidCert`, `TestSEC010_SSLConnection` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Generate self-signed cert:
 ```bash
 openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 1 -nodes -subj "/CN=localhost"
@@ -354,13 +379,21 @@ openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 1 -nodes 
 ## CLI-028: --redirport HTTP Redirect
 
 **Priority**: P1
+**Automated**: `TestCLI012_RedirPort`, `TestRedirPortPreservesPathAndQuery`, `TestRedirPortHostileTargets` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with SSL
 
 **Steps**:
-1. `websocketd --port=8443 --ssl --sslcert=cert.pem --sslkey=key.pem --redirport=8080 cat`
-2. `curl -v http://localhost:8080/`
+1. `websocketd --port=<sslport> --ssl --sslcert=cert.pem --sslkey=key.pem --redirport=<redirport> cat`
+2. `curl -v http://localhost:<redirport>/`
+3. `curl -v "http://localhost:<redirport>/docs/page.html?q=1"`
 
-**Expected Result**: HTTP 301/302 redirect to `https://localhost:8443/`.
+**Expected Result**: Step 2 returns HTTP 301 to `https://localhost:<sslport>/`.
+Step 3 returns HTTP 301 to `https://localhost:<sslport>/docs/page.html?q=1` — the
+path and query the client asked for are carried across, not discarded.
+
+**Notes**: Amended 2026-09-07. Step 3's behaviour is new in commit 189a547; before
+it, every client was sent to the site root. See SEC-023 for what the redirect must
+not do.
 
 ---
 
@@ -380,6 +413,7 @@ openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 1 -nodes 
 ## CLI-030: --ssl With --address Not Provided
 
 **Priority**: P1
+**Automated**: `TestResolveAddresses`, `TestValidateSSL` (root package). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8443 --ssl --sslcert=cert.pem --sslkey=key.pem cat`
@@ -394,6 +428,7 @@ openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 1 -nodes 
 ## CLI-031: --binary Flag Variations
 
 **Priority**: P2
+**Automated**: `TestCLI014_BinaryModeFlag` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --binary cat`
@@ -407,6 +442,7 @@ openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 1 -nodes 
 ## CLI-032: --unixsocket Unix Domain Socket
 
 **Priority**: P2
+**Automated**: `TestIssue435_UnixSocketEcho`, `TestIssue435_StaleSocketCleanup`, `TestUnixSocket_RefusesLiveSocket`, `TestUnixSocket_RefusesLiveSocketLeavesItServing`, `TestUnixSocket_SocketMode` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --unixsocket=/tmp/websocketd.sock cat` (no --port/--address)

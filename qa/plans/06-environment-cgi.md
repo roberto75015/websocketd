@@ -7,6 +7,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-001: All Standard CGI Variables Present
 
 **Priority**: P0
+**Automated**: `TestENV001_StandardCGIVariables`, `TestENV002_GatewayInterface`, `TestENV003_ServerProtocol`, `TestENV004_RequestMethod` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with `env` command
 
 **Steps**:
@@ -29,6 +30,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-002: QUERY_STRING with Parameters
 
 **Priority**: P0
+**Automated**: `TestENV005_QueryString` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect to `ws://localhost:8080/?key=value&foo=bar`
@@ -41,6 +43,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-003: QUERY_STRING Empty
 
 **Priority**: P1
+**Automated**: `TestENV006_QueryStringEmpty` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect to `ws://localhost:8080/` (no query string)
@@ -52,6 +55,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-004: PATH_INFO and SCRIPT_NAME
 
 **Priority**: P1
+**Automated**: `TestParsePathWithScriptDir`, `TestParsePathExplicitScript` (libwebsocketd). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Script directory mode with echo.sh
 
 **Steps**:
@@ -66,6 +70,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-005: REMOTE_ADDR and REMOTE_PORT
 
 **Priority**: P0
+**Automated**: `TestENV007_RemoteAddrAndPort` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect to websocketd
@@ -78,6 +83,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-006: UNIQUE_ID Uniqueness
 
 **Priority**: P1
+**Automated**: `TestENV008_UniqueID` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect client A, note UNIQUE_ID
@@ -91,6 +97,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-007: REQUEST_URI
 
 **Priority**: P1
+**Automated**: `TestENV009_RequestURI` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect to `ws://localhost:8080/path?query=1`
@@ -102,6 +109,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-008: HTTP Headers to HTTP_* Variables
 
 **Priority**: P0
+**Automated**: `TestENV010_HTTPHeaderConversion` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect with custom headers:
@@ -121,6 +129,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-009: HTTPS Variable with SSL
 
 **Priority**: P1
+**Automated**: `TestENV013_HTTPSVariable` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd with --ssl
 
 **Steps**:
@@ -134,6 +143,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-010: HTTPS Variable without SSL
 
 **Priority**: P1
+**Automated**: `TestENV014_HTTPSNotSetWithoutSSL` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect via ws:// (no SSL)
@@ -146,6 +156,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-011: Cleared Variables
 
 **Priority**: P2
+**Automated**: `TestSEC009_EnvironmentIsolation` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect and check AUTH_TYPE, REMOTE_IDENT, REMOTE_USER, CONTENT_TYPE, CONTENT_LENGTH
@@ -157,6 +168,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-012: --passenv=PATH
 
 **Priority**: P1
+**Automated**: `TestCLI011_Passenv` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --passenv=PATH env`
@@ -184,6 +196,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-014: Many HTTP Headers Conversion
 
 **Priority**: P2
+**Automated**: `TestENV010_HTTPHeaderConversion` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect with 50+ custom HTTP headers
@@ -207,6 +220,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-016: Host Header Parsing
 
 **Priority**: P1
+**Automated**: `TestTellHostPort` (libwebsocketd). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect with `Host: example.com:8080`
@@ -233,6 +247,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-018: CGI Variables for CGI-Dir Scripts
 
 **Priority**: P1
+**Automated**: `TestCGI001_ScriptExecuted` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd with --cgidir
 
 **Steps**:
@@ -247,6 +262,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-019: No Parent Environment Leakage
 
 **Priority**: P0
+**Automated**: `TestSEC009_EnvironmentIsolation` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Set many environment variables: HOME, USER, SHELL, AWS_SECRET_KEY, etc.
@@ -260,6 +276,7 @@ Tests for RFC 3875 CGI compliance, environment variable handling, and HTTP heade
 ## ENV-020: SERVER_SOFTWARE Version String
 
 **Priority**: P2
+**Automated**: `TestENV011_ServerSoftware` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect and check SERVER_SOFTWARE

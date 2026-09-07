@@ -7,6 +7,7 @@ Tests for URL routing, static file serving, CGI execution, and request handling.
 ## HTTP-001: WebSocket Upgrade Request
 
 **Priority**: P0
+**Automated**: `TestCORE001_BasicConnection` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Send an HTTP request with WebSocket upgrade headers:
@@ -39,6 +40,7 @@ Tests for URL routing, static file serving, CGI execution, and request handling.
 ## HTTP-003: Static File Serving - Basic
 
 **Priority**: P1
+**Automated**: `TestHTTP001_StaticFileServing` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create static files:
 ```
 static/index.html
@@ -60,6 +62,7 @@ static/images/logo.png
 ## HTTP-004: Static File Serving - Subdirectories
 
 **Priority**: P1
+**Automated**: `TestHTTP001_StaticFileServing` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Create `static/sub/deep/page.html`
@@ -72,6 +75,7 @@ static/images/logo.png
 ## HTTP-005: Static File - 404 for Missing Files
 
 **Priority**: P1
+**Automated**: `TestHTTP002_StaticFile404` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `curl -o /dev/null -w "%{http_code}" http://localhost:8080/nonexistent.html`
@@ -83,6 +87,7 @@ static/images/logo.png
 ## HTTP-006: Static File - Path Traversal Prevention
 
 **Priority**: P0 (Security)
+**Automated**: `TestHTTP003_StaticFilePathTraversal`, `TestHTTP003b_StaticSymlinkEscape`, `TestBoundarySpelling_EscapeStaysRefused` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `curl http://localhost:8080/../../../etc/passwd`
@@ -96,6 +101,7 @@ static/images/logo.png
 ## HTTP-007: Static Files and WebSocket Coexistence
 
 **Priority**: P0
+**Automated**: `TestHTTP004_StaticAndWebSocketCoexist` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --staticdir=./static cat`
@@ -110,6 +116,7 @@ static/images/logo.png
 ## HTTP-008: CGI Script Execution
 
 **Priority**: P1
+**Automated**: `TestCGI001_ScriptExecuted` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create CGI script:
 ```bash
 #!/bin/bash
@@ -129,6 +136,7 @@ echo "Hello from CGI"
 ## HTTP-009: CGI Script with Query String
 
 **Priority**: P1
+**Automated**: `TestHTTP008_QueryStringPassedToScript` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: CGI script that reads QUERY_STRING
 
 **Steps**:
@@ -141,6 +149,7 @@ echo "Hello from CGI"
 ## HTTP-010: CGI Subfolder Navigation
 
 **Priority**: P1
+**Automated**: `TestIssue453_CGIDirInsideStaticDir`, `TestCGIMountSpelling_CgiDirViaSymlink` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create `cgi-bin/admin/status.cgi`
 
 **Steps**:
@@ -155,6 +164,7 @@ echo "Hello from CGI"
 ## HTTP-011: Script Directory Mode - URL Mapping
 
 **Priority**: P0
+**Automated**: `TestPROC007_ScriptDirectoryMode`, `TestHTTP009_MultipleURLPaths` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create script directory:
 ```
 scripts/echo.sh (executable)
@@ -185,6 +195,7 @@ scripts/count.sh (executable)
 ## HTTP-013: Script Directory Mode - Path Traversal
 
 **Priority**: P0 (Security)
+**Automated**: `TestCGI002_PathTraversal`, `TestScriptDirInsideStaticDirIsNotDisclosed` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect to `ws://localhost:8080/../../etc/passwd`
@@ -211,6 +222,7 @@ scripts/count.sh (executable)
 ## HTTP-015: Dev Console Serving
 
 **Priority**: P1
+**Automated**: `TestHTTP005_DevConsoleServing`, `TestHTTP005b_DevConsoleBodyIsConstant` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --devconsole cat`
@@ -223,6 +235,7 @@ scripts/count.sh (executable)
 ## HTTP-016: Custom HTTP Headers
 
 **Priority**: P1
+**Automated**: `TestHTTP007_CustomHeadersOnHTTP` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --header="X-Custom: test" cat`
@@ -235,6 +248,7 @@ scripts/count.sh (executable)
 ## HTTP-017: Multiple Custom Headers
 
 **Priority**: P2
+**Automated**: `TestCLI008_CustomHeaders` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --header="X-A: 1" --header="X-B: 2" cat`
@@ -247,6 +261,7 @@ scripts/count.sh (executable)
 ## HTTP-018: Host Header Parsing
 
 **Priority**: P1
+**Automated**: `TestTellHostPort`, `TestTellURL` (libwebsocketd). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect with `Host: example.com:8080`
@@ -262,6 +277,7 @@ scripts/count.sh (executable)
 ## HTTP-019: Concurrent HTTP and WebSocket
 
 **Priority**: P1
+**Automated**: `TestHTTP006_DevConsoleAndWebSocket`, `TestPERF007_ConcurrentWebSocketAndHTTP` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd with --staticdir
 
 **Steps**:
@@ -286,6 +302,7 @@ scripts/count.sh (executable)
 ## HTTP-021: URL with Query String for WebSocket
 
 **Priority**: P1
+**Automated**: `TestHTTP008_QueryStringPassedToScript` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect to `ws://localhost:8080/?key=value`

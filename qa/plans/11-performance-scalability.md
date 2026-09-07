@@ -9,6 +9,7 @@ Tests for concurrent connections, throughput, latency, and resource usage.
 ### PERF-001: 10 Concurrent Connections
 
 **Priority**: P0
+**Automated**: `TestPERF001_TenConcurrentConnections` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 cat`
@@ -22,6 +23,7 @@ Tests for concurrent connections, throughput, latency, and resource usage.
 ### PERF-002: 100 Concurrent Connections
 
 **Priority**: P1
+**Automated**: `TestPERF002_FiftyConcurrentConnections` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 cat`
@@ -51,6 +53,7 @@ Tests for concurrent connections, throughput, latency, and resource usage.
 ### PERF-004: Connection Churn (High Turnover)
 
 **Priority**: P1
+**Automated**: `TestPERF004_ConnectionChurn` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 cat`
@@ -66,6 +69,7 @@ Tests for concurrent connections, throughput, latency, and resource usage.
 ### PERF-005: Message Throughput (Text Mode)
 
 **Priority**: P1
+**Automated**: `TestPERF003_MessageThroughput` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 cat`
@@ -105,6 +109,7 @@ Tests for concurrent connections, throughput, latency, and resource usage.
 ### PERF-008: Large Message Transfer (Binary)
 
 **Priority**: P2
+**Automated**: `TestPERF006_LargePayloadBinary`, `TestBACKPRESSURE001_BinaryLargePayload` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --binary cat`
@@ -239,6 +244,7 @@ Tests for concurrent connections, throughput, latency, and resource usage.
 ### PERF-018: --maxforks Under Pressure
 
 **Priority**: P1
+**Automated**: `TestPERF005_MaxforksUnderPressure` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --maxforks=10 cat`
@@ -252,6 +258,7 @@ Tests for concurrent connections, throughput, latency, and resource usage.
 ### PERF-019: Static File Serving Under WebSocket Load
 
 **Priority**: P2
+**Automated**: `TestPERF007_ConcurrentWebSocketAndHTTP` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd with --staticdir
 
 **Steps**:
