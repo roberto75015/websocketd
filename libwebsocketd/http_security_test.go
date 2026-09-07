@@ -9,13 +9,17 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
 // TestResolveCgiPath checks that a request URL can only ever name a file
 // inside the configured CGI directory. req.URL.Path is percent-decoded by
-// net/http and the handler is not mounted on a ServeMux, so dot segments
-// reach us verbatim and must not be able to climb out of the directory.
+// net/http, and libwebsocketd is usable as a plain http.Handler with no mux
+// in front of it, so dot segments can reach us verbatim and must not be
+// able to climb out of the directory. (The websocketd binary does register
+// on DefaultServeMux, which redirects an unclean path first — that is a
+// second line, not the one under test here.)
 func TestResolveCgiPath(t *testing.T) {
 	cgiDir := filepath.FromSlash("/srv/cgi")
 
@@ -53,6 +57,62 @@ func TestResolveCgiPath(t *testing.T) {
 				t.Errorf("resolveCgiPath(%q, %q) = %q, want %q", cgiDir, tt.urlPath, got, want)
 			}
 		})
+	}
+}
+
+// TestResolveCgiPathAssertionNeverFires pins containsPath's status as an
+// invariant assertion rather than a second containment check: for every URL
+// path a request can carry, resolveCgiPath either refuses on the "names no
+// script" rule or returns a path lexically inside cgiDir, so the assertion
+// has nothing left to catch. A check that never fires is only safe to keep
+// while that is a proven property of its input rather than an accident —
+// and it is only safe to delete once the property is written down here.
+//
+// The second half is the case that does trip it, so the first half cannot
+// be passing vacuously: an empty cgiDir, where filepath.Rel cannot relate a
+// relative directory to the absolute child it was joined into. serveCGI
+// returns before calling resolveCgiPath with one, which is why no request
+// reaches it.
+func TestResolveCgiPathAssertionNeverFires(t *testing.T) {
+	urls := []string{
+		"/", "", ".", "..", "/hello.sh", "//sub//hello.sh", "/sub/../hello.sh",
+		"/./hello.sh", "/../../../bin/sh", "/sub/../../../bin/sh", "/hello.sh/..",
+		"/..", "/.", "/a/./b/../c", "/a//../..", "/.git/config", "/cgi-bin/hello.sh",
+		"/x%2f..%2f", "/ ", "/-", "//", "///../", "/..%2f..%2f", "/a/../../..",
+		`/sub\hello.bat`, `/..\..\evil`, `\..\..\evil`, "/\u00e9/../x",
+		"/very/deep/../../../../../../../../etc/passwd",
+	}
+	dirs := []string{
+		filepath.FromSlash("/srv/cgi"), filepath.FromSlash("/"), ".", "cgi-bin",
+		filepath.FromSlash("./cgi/"), filepath.FromSlash("/srv/cgi/"),
+		filepath.FromSlash("/srv/../srv/cgi"),
+	}
+	for _, dir := range dirs {
+		for _, u := range urls {
+			got, err := resolveCgiPath(dir, u)
+			if err != nil {
+				// The only refusal resolveCgiPath is allowed to produce is
+				// the one for a path that names no script at all. If the
+				// assertion ever starts refusing, this fails and says so.
+				if !strings.Contains(err.Error(), "no CGI script named") {
+					t.Errorf("resolveCgiPath(%q, %q) refused with %v; the lexical assertion is not supposed to be reachable", dir, u, err)
+				}
+				continue
+			}
+			rel, relErr := filepath.Rel(dir, got)
+			if relErr != nil {
+				t.Errorf("resolveCgiPath(%q, %q) = %q, which filepath.Rel cannot relate to the directory: %v", dir, u, got, relErr)
+				continue
+			}
+			if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				t.Errorf("SECURITY: resolveCgiPath(%q, %q) = %q, which escapes the directory", dir, u, got)
+			}
+		}
+	}
+
+	// The must-fire case, so the loop above cannot be trivially satisfied.
+	if _, err := resolveCgiPath("", "/hello.sh"); err == nil {
+		t.Error("resolveCgiPath(\"\", \"/hello.sh\") returned no error; the lexical assertion is unreachable even where it should fire, so the loop above proves nothing")
 	}
 }
 

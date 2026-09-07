@@ -183,22 +183,86 @@ func GetURLInfo(path string, config *Config) (*URLInfo, error) {
 	return nil, fmt.Errorf("could not resolve script for path %q", path)
 }
 
-// checkPathBoundary resolves symlinks and verifies the real path is within the
-// allowed directory. Returns an error if the path escapes the boundary.
+// checkPathBoundary is dirRelation read as a refusal: it reports an error
+// unless the file at path really sits inside boundary. handler.go, serveCGI
+// and boundedDir.Open all guard a directory with it.
+//
+// Both arguments are made absolute before their symlinks are resolved, so
+// the two are compared in one frame of reference, and the answer depends on
+// which directory each argument names rather than on how it is spelled.
+// EvalSymlinks preserves the relativeness of its argument, so comparing its
+// output for a relative boundary against its output for a path was not
+// merely strict, it was meaningless, and it erred in both directions: a "."
+// boundary refused everything (nothing EvalSymlinks returns starts with
+// "./"), while a ".." boundary accepted anything still spelled with a
+// leading "../" — exactly what a symlink pointing out of the tree resolves
+// to. That failed OPEN, disclosing a file outside a relative --staticdir
+// and executing one outside a relative --cgidir.
+//
+// filepath.Abs collapses ".." lexically, before any symlink is resolved.
+// That is the intended reading for the boundary — the operator's own flag
+// value, resolved as --dir always has been — and the path side is that
+// boundary joined with an already-rooted, cleaned request path, so it
+// carries no ".." for the collapse to misread.
 func checkPathBoundary(path, boundary string) error {
-	realPath, err := filepath.EvalSymlinks(path)
+	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return err
 	}
-	realBoundary, err := filepath.EvalSymlinks(boundary)
+	absBoundary, err := filepath.Abs(boundary)
 	if err != nil {
 		return err
 	}
-	// Ensure the resolved path starts with the resolved boundary
-	if !strings.HasPrefix(realPath, realBoundary+string(filepath.Separator)) && realPath != realBoundary {
-		return fmt.Errorf("path %q escapes boundary %q", realPath, realBoundary)
+	realPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		return err
 	}
-	return nil
+	realBoundary, err := filepath.EvalSymlinks(absBoundary)
+	if err != nil {
+		return err
+	}
+
+	// Fast path, and the one every ordinary request takes: the resolved
+	// path is spelled with the resolved boundary as its prefix. No extra
+	// syscalls, so the per-request cost is what it has always been. It is
+	// an accelerator, not a second policy — anything it accepts, the walk
+	// below accepts too, which TestCheckPathBoundaryFastPathImpliesIdentity
+	// pins — so the walk only ever runs where this test would have refused.
+	if realPath == realBoundary || strings.HasPrefix(realPath, realBoundary+string(filepath.Separator)) {
+		return nil
+	}
+
+	// Slow path: the rare and attack-shaped case, plus one legitimate case
+	// the prefix cannot see. EvalSymlinks resolves symlinks but does not
+	// canonicalize the spelling that is left, so two symlink-free absolute
+	// paths can still name one directory (see dirRelation). The file is
+	// then inside the directory the operator configured, and refusing it
+	// 404s their own content, so ask the filesystem which directory each
+	// path names instead of asking how it is spelled.
+	//
+	// Accepting on either route, rather than requiring both to agree, is
+	// deliberate: each is sound alone — a string prefix over two resolved
+	// paths is proof of containment, and so is finding the boundary
+	// directory itself among the resolved path's ancestors — and requiring
+	// both would fix nothing, because the bug *is* the prefix failing. The
+	// narrow risk in admitting identity is a filesystem that synthesizes or
+	// recycles inode numbers (some FUSE and network filesystems); that is
+	// the same evidence the exec exclusion has always relied on, it is
+	// bounded to an ancestor of an already-resolved path, and nothing a
+	// request can spell reaches it.
+	bi, err := os.Stat(realBoundary)
+	if err != nil {
+		return err
+	}
+	if _, rel := dirRelationResolved(realPath, realBoundary, bi); rel == relInside {
+		return nil
+	}
+
+	// Anything else is refused, relUnknown included: this is the call site
+	// that refuses on the negative, so "cannot tell" has to mean refuse.
+	// Two of the other three read it the other way, which is why
+	// dirRelation reports three states rather than two (see dirRel).
+	return fmt.Errorf("path %q escapes boundary %q", realPath, realBoundary)
 }
 
 // generateId produces the per-connection identifier exposed as UNIQUE_ID.
