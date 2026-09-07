@@ -1,5 +1,391 @@
 Version 0.5.0 (Apr 26, 2026)
 
+Breaking changes — read before upgrading:
+
+* Breaking change: --origin port matching is now strict. A portless allow-list
+  entry used to match ANY port — --origin=trusted.com accepted
+  http://trusted.com:1337 as readily as http://trusted.com, vouching for
+  whatever else happens to listen on that host's other ports. It now matches
+  only the scheme's default port (80 for http, 443 for https; both, if the
+  entry carries no scheme). Affected origins get HTTP 403. To migrate: if a
+  portless entry relied on the implicit any-port match, append ":*" to it.
+
+      before: --origin=trusted.com          (accepted trusted.com on ANY port)
+      after:  --origin=trusted.com:*         (still accepts trusted.com on ANY port)
+      or:    --origin=trusted.com            (now accepts default ports only: 80/443)
+
+  Entries with an explicit port are unchanged.
+
+* Breaking change: --sslca without --ssl is now rejected at startup with
+  exit code 1. It used to start successfully and serve plain HTTP, with no
+  TLS and no client-certificate verification — an operator who believed
+  mutual TLS was active got a server that was neither encrypted nor
+  authenticated, and nothing said so (issue #477). To migrate: add --ssl
+  with --sslcert and --sslkey alongside --sslca to run mutual TLS, or drop
+  --sslca if TLS isn't wanted on this listener.
+
+Everything else:
+
+* Fix: --redirport threw away the path and query of every request it
+  redirected. The Location header was built by appending a literal "/" to
+  the canonical scheme, host and port, so http://example.com/docs/page.html?q=1
+  arrived at https://example.com/ -- a link into the site landed on the
+  front page, and the redirect was only useful for people who had typed the
+  bare hostname. The Location now carries the path and query the client
+  actually asked for. Operators need not act before upgrading; anything
+  relying on the old behaviour was relying on links being broken.
+
+  The origin is still built the same way -- the client's own Host header
+  with only the scheme and port rewritten -- and the client-controlled path
+  and query are not concatenated onto it. They are resolved against it as
+  an RFC 3986 reference with no authority of its own, which is what keeps
+  the target on this server: a path beginning "//" stays a path instead of
+  becoming a protocol-relative URL, dot segments resolve against the root
+  rather than climbing above it, and percent-encoding is preserved rather
+  than decoded or doubled, so an encoded CR/LF, NUL or "%2F" reaches the
+  header still encoded. Request lines carrying a raw CR, LF or space are
+  rejected with 400 by Go's request parser before the redirect handler
+  runs, as they were before.
+
+* Fix: --staticdir no longer serves the source code of the scripts
+  websocketd was told to execute. A file inside the --dir tree or inside
+  the --cgidir tree is now refused with 404 however the URL reaches it,
+  including through a symlink from elsewhere in the static tree.
+
+  Both flags were affected. --dir, the more commonly used of the two, was
+  the worse case: with --staticdir=/PAGE --dir=/PAGE/scripts, a plain GET
+  of /scripts/hello.sh carries no Upgrade header, so it never reached the
+  WebSocket handler at all and fell through to the static handler, which
+  returned the script as application/x-sh -- credentials, internal
+  hostnames and all. With --staticdir=/PAGE --cgidir=/PAGE/cgi-bin
+  (issue #453), a request the CGI handler declined fell through the same
+  way and disclosed whatever the script contained. Scripts configured to
+  be executed are not fallback static content.
+
+  The one exception, for both flags, is a --staticdir at or inside the
+  script directory (the --dir=. --staticdir=. demo layout), where the
+  exclusion would leave the static handler nothing at all to serve; that
+  layout is unchanged.
+
+  No operator action is needed to upgrade. If you were relying on
+  --staticdir to hand out the text of files inside your --dir or
+  --cgidir, move those files out of the script directory.
+
+* Fix: --staticdir served dotfiles and dot-directories (.git/config,
+  .env, .ssh/id_rsa, ...) verbatim, and auto-generated a directory
+  listing for any directory with no index.html (issue #476). Both are now
+  refused with 404. The one exception is /.well-known/, which RFC 8615
+  reserves for URIs meant to be served publicly (ACME's
+  /.well-known/acme-challenge/<token>, security.txt, and similar); it is
+  still served, matched on that exact first path segment only, so a
+  further dotfile nested inside it (or a directory that merely starts
+  with the same name) is still refused.
+
+  The listing refusal at first let a directory through as long as
+  "<dir>/index.html" opened. net/http additionally requires that name not
+  to be a directory itself, and falls back to listing when it is, so a
+  directory literally named index.html (holding its own index.html) was
+  still listed. The index must now be a regular file, which makes the
+  listing branch unreachable by construction rather than by an assumption
+  about net/http's control flow.
+
+  If you relied on a directory listing to browse a --staticdir tree with
+  no index.html, that listing no longer appears; add an index.html to
+  that directory, or serve it another way. --staticdir does not otherwise
+  change: ordinary files, dot-free directories with an index.html, and
+  the existing symlink-escape protection all behave as before, and no new
+  flag was added.
+
+* Fix: --cgidir did not work when the CGI directory sat inside the
+  --staticdir tree, the natural layout for a self-contained site
+  (issue #453). With --staticdir=/PAGE --cgidir=/PAGE/cgi-bin, the URL a
+  browser forms for a script is /cgi-bin/hello.sh; that was mapped into
+  the CGI directory whole, looked for /PAGE/cgi-bin/cgi-bin/hello.sh,
+  missed, and fell through to the static handler (see the disclosure fix
+  above). When the CGI directory is inside the static directory, its
+  position there is now also a URL prefix for CGI, so /cgi-bin/hello.sh
+  runs /PAGE/cgi-bin/hello.sh. The prefix is derived from the two flags;
+  no new flag, and nothing changes when the directories are unrelated.
+  The existing direct mapping (/hello.sh runs /PAGE/cgi-bin/hello.sh) was
+  never affected, still applies, and still wins any ambiguity.
+
+  Which directory sits inside which is decided by resolving both and
+  comparing file identity, not by comparing the two flag values as text.
+  The text comparison was really testing whether the operator had spelled
+  the two flags consistently: a release symlink named by one and not the
+  other -- "--staticdir=/srv/current --cgidir=/srv/releases/v1/cgi-bin"
+  where /srv/current points at /srv/releases/v1 -- or two spellings
+  differing only in case on a case-folding filesystem, made one nested
+  pair look like two unrelated trees. No prefix was derived, so GET
+  /cgi-bin/hello.sh reached neither handler.
+
+  A --cgidir that merely becomes reachable from the static tree through a
+  symlink is still not treated as being inside it, and is still refused
+  at that URL. The derived prefix is resolved once at first use rather
+  than per request, so a deployment symlink flipped while websocketd is
+  running does not re-route live requests; restart to pick up a new
+  layout.
+
+* Fix: --staticdir and --cgidir now decide whether a file is inside the
+  configured directory by asking the filesystem, not by comparing
+  resolved paths as text. The old check ran both sides through
+  filepath.EvalSymlinks and compared the results with a string prefix.
+  That was wrong in two directions:
+
+  - A relative --staticdir or --cgidir was never put in the same frame of
+    reference as the resolved request path, so the comparison was
+    meaningless rather than merely strict. `websocketd --staticdir=. ...`
+    -- the obvious thing to type when you are already in the directory
+    you want to serve -- answered 404 to every request and served
+    nothing; --cgidir=. ran no scripts. More seriously, --staticdir=..
+    and --cgidir=.. failed OPEN: a symlink inside the served directory
+    pointing out of it was followed, disclosing a file outside a relative
+    --staticdir and executing one outside a relative --cgidir, where the
+    same tree served through an absolute path correctly refused both.
+    Both sides are now made absolute before symlinks are resolved, and
+    every spelling of a directory -- ".", "./", "..", "sub", "./sub",
+    absolute -- enforces the same boundary and serves the same files.
+
+  - EvalSymlinks resolves symlinks but does not canonicalize the spelling
+    it leaves behind, so a file genuinely inside the configured directory
+    could share no string prefix with it and be 404ed. On a case-folding
+    filesystem (macOS, Windows) a symlink whose target says
+    "<base>/page/sub/x.txt" under "--staticdir=<base>/PAGE" is one such
+    path; a directory reached through more than one mountpoint is
+    another. websocketd now falls back to asking the filesystem which
+    directory each path names -- the same os.SameFile identity test the
+    exec-directory exclusion has always used -- when, and only when, the
+    text comparison would have refused.
+
+  Every escape that was refused before is still refused: symlinks out of
+  the tree, "..", %2e%2e, name-prefix siblings, dotfiles and directory
+  listings. --dir was never affected; it has always been resolved to an
+  absolute path at startup. Per-request cost on the common path is
+  unchanged; the identity walk runs only on paths that were previously
+  404ed.
+
+* New: a full documentation site at websocketd.com/docs (issue #467),
+  built with Hugo from docsite/ in this repo, organised on the four
+  Diataxis modes: start/ teaches (install, one tutorial), how-to/ gets a
+  job done (six language fixes, nine deployment recipes, five problem
+  patterns), reference/ states facts (every flag, environment variable
+  and exit code, the dev console contract, platform support, and the
+  shipped examples), and understanding/ explains why (the process model,
+  message framing, output buffering, process lifecycle, the CGI
+  environment, the security model, and the design decisions behind them).
+  A FAQ signposts the ten most-asked questions to the pages that answer
+  them, and the changelog you are reading is rendered from this file.
+  /llms.txt and /llms-full.txt are published for LLM readers; the latter
+  is generated at build time from the same pages the site renders. The
+  CLI flag reference and the man page's flag table are generated from
+  the same flag definitions --help reads (tools/gendocs), checked in CI
+  so they cannot drift the way the man page previously had (see the flag
+  documentation fix below). The GitHub wiki is retired as the
+  documentation surface; README.md, website/index.html, and every
+  examples/*/README.md point at the new site instead. The writing
+  standard the site is held to is in docsite/STYLE.md and its
+  information architecture in docsite/PLAN.md.
+
+  Fixed in the site during this release:
+
+  - the "Engineering Blueprint" theme never actually rendered. A
+    documentation comment in blueprint.css wrote the glob --pt-*/--pb-*;
+    the */ inside it closed a CSS block comment three lines early
+    (comments don't nest), and the parser then read the rest of the
+    sentence as an invalid selector, silently dropping the :root rule
+    that defines every design token. The deployed site served unstyled
+    Times with overlapping lines in every browser, in both color
+    schemes, since the site first went live. That masked several further
+    bugs, also fixed: fonts 404ing under the /docs path prefix, markdown
+    images and tables with no styling at all, every mermaid diagram
+    cropped to a ~40px sliver by text-box-trim on its containing <pre>,
+    a header height that put the whole document 6px off its own baseline
+    grid, a call-to-action button measuring 2.23:1 contrast in dark mode,
+    and a mobile nav toggle marked hidden (making the drawer unopenable
+    from a keyboard).
+
+  - the link-check CI job could never pass. baseURL is
+    websocketd.com/docs, so built pages link to /docs/..., while
+    docsite/public holds those pages at its own root; resolving them
+    against docsite/public therefore failed for every internal link on
+    the site. Measured on an unmodified tree: 1734 errors, 5 OK. The job
+    now assembles _site/docs the way the deploy job does, and the site
+    reports zero dead links.
+
+  - llms-full.txt was never ordered by the site map. Its ordering loop
+    compared site-root paths such as /start/ against .RelPermalink,
+    which under this baseURL reads /docs/start/, so nothing matched and
+    every page fell through to the unordered tail.
+
+  - section index pages listed their contents alphabetically and showed
+    no descriptions, because the template sorted by title and read a
+    front-matter field (summary) that no page sets. They now sort by
+    weight and show each page's description.
+
+  - start/install.md described websocketd as not having a current tagged
+    release and pointed readers at building from source instead. It is
+    now a normal install page: pre-built binaries lead, pointing at the
+    GitHub releases page.
+
+  - accuracy issues found by an adversarial reference-check pass:
+    --sameorigin's Origin/Host comparison rejects every upgrade behind a
+    typical TLS-terminating reverse proxy, and the auth-via-reverse-proxy
+    cookbook recipe recommended exactly that combination (switched to
+    --origin); the CGI environment page implied --cgidir shares the
+    WebSocket connection's variable contract when it does not
+    (net/http/cgi builds its own; SCRIPT_NAME, PATH_INFO,
+    PATH_TRANSLATED, UNIQUE_ID, and AUTH_TYPE/REMOTE_USER/REMOTE_IDENT
+    all differ); the process-lifecycle diagram had never rendered (same
+    class of mermaid label-syntax error as above, on a different page);
+    and the teardown-ladder text understated which signals reach a
+    wrapped program's whole process group.
+
+* Fix: two errors in the examples' README files. Five of them
+  (examples/c#, examples/f#, examples/java, examples/lua,
+  examples/nodejs) linked their install step to
+  docs.websocketd.com/start/install/, a subdomain that was planned but
+  never registered -- the site is served at websocketd.com/docs -- so
+  the links were dead on arrival; they now point at the real page. The
+  link check in CI runs offline over the built Hugo output, so it never
+  saw these files; a repo-wide test now fails if the dead host reappears
+  in a link anywhere outside docs-archive/. Separately,
+  examples/java/README.md instructed running the Echo and Count scripts
+  from examples/java/ directly; they live one directory down, in Echo/
+  and Count/ respectively.
+
+* New: websocketd.com's homepage is rebuilt around what the tool is
+  rather than around a slogan. The first screen now carries a headline
+  that names the job ("Turn any program into a WebSocket server"), a
+  two-sentence explanation, the count.sh example and the command that
+  serves it, and two buttons — Start the tutorial and Download — both of
+  which are inside the fold at a 1440x900 desktop and a 390x844 phone.
+  The old page put its first call to action 793px down and never showed
+  one at all on a phone. It shares the docs site's stylesheet and font
+  files rather than a copy of them: index.html links /docs/css/blueprint.css
+  and /docs/fonts/fonts.css, which the Pages workflow already publishes
+  in the same artifact, so the eleven colour tokens, the two self-hosted
+  typefaces and the 8px baseline grid have one home. The tutorial
+  content that used to live on the homepage in eleven languages, and the
+  platform/architecture download matrix, are gone; both are on
+  websocketd.com/docs now, and the page names no version number and no
+  archive filename, so it no longer goes stale on the day a release is
+  cut. The page also declares <meta charset="utf-8"> for the first time
+  — its em-dashes were correct UTF-8 all along, but any host that does
+  not send a charset header rendered them as mojibake, GitHub Pages
+  having happened to save it. The plan behind the rebuild, including the
+  measurements of the old page and of three comparable project sites, is
+  in docs-archive/REDESIGN_PLAN.md.
+
+  Removed with the rebuild: the homepage's runtime dependencies on Google
+  Fonts and two cdnjs assets (normalize 3.0.1, Font Awesome 4.2.0), the
+  vendored Prism syntax highlighter, home.js, the six feature icons and
+  bluebg.jpg — the rebuild removed their last consumer, and the docs
+  site's self-hosted fonts replace the first. The 2013-era Google
+  Analytics ga.js snippet goes with them: it pointed at a Universal
+  Analytics property, which Google shut down in 2023, so it had not
+  recorded a visit in years. Plausible is unaffected.
+
+  Also new: the Pages workflow's link check now covers the homepage as
+  well as the docs site, and runs on pull requests that touch website/**.
+  It did not before: the check assembled only _site/docs, so
+  website/index.html was never in the tree lychee walked and a
+  homepage-only change got no CI at all. Measured on this tree, the old
+  assembly reports 0 errors even with a misspelled /docs/ deep link
+  sitting in the homepage; the full assembly fails with exit 2 and names
+  the path.
+
+* Fix: the flag documentation corrected wherever it disagreed with what
+  websocketd does. The man page's flag table and the docs site's CLI flag
+  reference are now generated from the same flag definitions --help reads
+  (tools/gendocs) and diffed in CI, so this class of drift cannot recur
+  silently.
+
+  - --closems's usage string said "Time to start sending signals (0
+    never)". Both halves were wrong. websocketd always escalates through
+    stdin close, SIGINT, SIGTERM and SIGKILL when a client disconnects;
+    --closems adds time to each of the first three waits and does not gate
+    the escalation, and the final wait before the SIGKILL sweep does not
+    take the addition at all. A reader following the old text would have
+    concluded that the default disables termination signalling. help.go
+    already described this correctly, so --help and the generated man page
+    disagreed.
+
+  - --passenv's help text said "Does not work for Windows since all the
+    variables are kept there". The child's environment is built identically
+    on every platform (config.go's buildParentEnv, env.go and launcher.go
+    have no OS branch), and internal/cliflags carries a real Windows
+    default. The text now states the property users actually get wrong:
+    --passenv replaces the default list rather than adding to it, so naming
+    one variable leaves the child with no PATH.
+
+  - --devconsole's usage string named only --staticdir among the flags it
+    cannot be combined with, though websocketd also rejects it with
+    --cgidir, both with exit code 4.
+
+  - --pingms and --sslca were undocumented in --help output entirely.
+
+  - the man page was missing 9 flags (--maxforks, --closems, --pingms,
+    --sslca, --redirport, --binary, --header*), and later --maxframesize
+    and --anyorigin; stated the old --maxforks default (0, unlimited)
+    where the real default has been 1024 since the 2026-08-17 hardening
+    pass; gave --reverselookup's default as true rather than false; and
+    carried the wrong man section and version metadata.
+
+  - tools/gendocs rendered --passenv's default verbatim from flag.DefValue,
+    which is derived from runtime.GOOS, so release/websocketd.man and
+    docsite/content/reference/cli-flags.md differed depending on which OS
+    ran the generator (the committed files carried macOS's
+    PATH,DYLD_LIBRARY_PATH) and the docsdrift CI job -- which regenerates
+    on Linux and diffs -- could never pass. The generated default is now
+    the platform-independent "platform-dependent", with the per-OS values
+    stated in the flag's prose note.
+
+* New: the --devconsole development console has been rebuilt (issue #466).
+  It is now a split inspector - a frame list with timestamps, direction,
+  byte sizes and previews, beside a detail pane showing one frame's opcode,
+  size, round-trip time and pretty/raw/hex views. Enter connects, Enter
+  sends (Shift+Enter for a newline), Up and Down walk back and forth
+  through what you sent before, and lifecycle events (open, close with code
+  and reason, errors) appear inline in the transcript. While the field is
+  in history recall both keys keep working wherever the cursor sits;
+  outside it they stay free for ordinary multi-line editing. Binary frames
+  are shown as length plus a hex/ASCII dump instead of a mangled string.
+  Light and dark themes both follow the system by default, with an override
+  that persists. The transcript is capped by a ring buffer, so a chatty
+  command no longer grows the page until the tab dies. Still a single
+  embedded file with no dependencies, no build step and no network requests
+
+  This replaces the old console outright, and with it the earlier
+  modernization of that console's embedded JS (var -> const/let, function
+  expressions -> arrows) and the scoping bug it fixed, where a stray
+  semicolon left currentSendHistoryPosition and sendHistoryRollback as
+  accidental implicit globals
+
+  qa/browser is a new Go module -- kept separate from the root module so
+  its chromedp dependency never raises the minimum Go version needed to
+  build the shipped binary -- driving the rebuilt console in real headless
+  Chrome: connecting, sending, receiving, selecting frames, toggling theme,
+  and confirming hostile frame content is never parsed as HTML
+
+* Security: the --devconsole response is hardened. It now carries a strict
+  Content-Security-Policy (default-src 'none'; the page's own inline script
+  and style pinned by SHA-256 hashes computed from the embedded content;
+  connect-src limited to ws:/wss:; frame-ancestors 'none') and
+  X-Content-Type-Options: nosniff. The console is routinely pointed at
+  servers the user does not control and renders their text; it previously
+  had no security headers at all.
+
+  The page also no longer interpolates anything from the request. The Host-
+  and request-target-derived WebSocket address it used to substitute into
+  the page was a reflected XSS, reachable when a crafted request path was
+  sent to an exposed dev console; it was first fixed by HTML-escaping the
+  value, and is now gone entirely. It was already dead weight -- the
+  console fills that field from location.href in the browser, so the
+  server-side value was never seen. The response body is now a constant,
+  which removes the reflected-injection class structurally instead of
+  escaping around it, and carries a strong ETag, so a reload is answered
+  with a 304
+
 * Fix: rejected WebSocket upgrades no longer make the HTTP server log a
   spurious "superfluous response.WriteHeader" error. gorilla's upgrade had
   already written the client's 403/400; the handler wrote the response a
@@ -17,24 +403,6 @@ Version 0.5.0 (Apr 26, 2026)
   permissive behavior and silences the warning. Announced behavior change
   for a future release: websocketd will then default to --sameorigin, and
   setups that rely on accepting any origin should pass --anyorigin
-
-Breaking changes — read before upgrading:
-
-* Breaking change: --origin port matching is now strict. A portless allow-list
-  entry used to match ANY port — --origin=trusted.com accepted
-  http://trusted.com:1337 as readily as http://trusted.com, vouching for
-  whatever else happens to listen on that host's other ports. It now matches
-  only the scheme's default port (80 for http, 443 for https; both, if the
-  entry carries no scheme). Affected origins get HTTP 403. To migrate: if a
-  portless entry relied on the implicit any-port match, append ":*" to it.
-
-      before: --origin=trusted.com          (accepted trusted.com on ANY port)
-      after:  --origin=trusted.com:*         (still accepts trusted.com on ANY port)
-      or:    --origin=trusted.com            (now accepts default ports only: 80/443)
-
-  Entries with an explicit port are unchanged.
-
-The rest of this release is backward-compatible:
 
 * New: --socketmode=0700-style flag pins the Unix socket file's permissions
   instead of leaving them to the process umask, which under permissive umasks
@@ -77,17 +445,17 @@ The rest of this release is backward-compatible:
   remote caller could otherwise redirect the backend's outbound traffic through
   a proxy they control with a single request (httpoxy, CVE-2016-5385). The
   WebSocket environment now drops it, matching net/http/cgi
-* Releases now include a native Apple Silicon binary (darwin_arm64). Previously
-  only darwin_amd64 was built, so Mac users on M-series hardware ran it under
-  Rosetta 2 — despite the QA plan having covered macOS ARM64 (BUILD-015) all
-  along. No darwin_386 build: Go dropped that target, and the last 32-bit-only
-  Macs predate 2007
-* Releases no longer ship FreeBSD, OpenBSD or Solaris binaries; the published
-  archives cover Linux (amd64/386/arm/arm64), macOS (amd64) and Windows
-  (amd64/386). Those binaries went unused, and the download links on
-  websocketd.com still pointed at v0.3.0. This only affects prebuilt
-  artifacts — the source still compiles for those systems with a plain
-  `go build`, and their --passenv defaults are unchanged
+* The published release archives now cover Linux (amd64/386/arm/arm64),
+  macOS (amd64/arm64) and Windows (amd64/386). darwin_arm64 is new: only
+  darwin_amd64 was built before, so Mac users on M-series hardware ran it
+  under Rosetta 2, despite the QA plan having covered macOS ARM64
+  (BUILD-015) all along. There is no darwin_386 build -- Go dropped that
+  target, and the last 32-bit-only Macs predate 2007. FreeBSD, OpenBSD and
+  Solaris binaries are no longer shipped: they went unused, and the
+  download links on websocketd.com still pointed at v0.3.0. That affects
+  prebuilt artifacts only -- the source still compiles for those systems
+  with a plain `go build`, and their --passenv defaults are unchanged
+
 * The websocketd.com links in --help, the dev console, the man page and the
   package metadata now use https. The site enforces HTTPS, so the old http
   URLs only served a redirect
@@ -118,54 +486,86 @@ The rest of this release is backward-compatible:
   defaulting to 1 MiB (0 disables). Previously a single client could stream
   an unbounded frame that websocketd buffered whole in memory (DoS). Clients
   that legitimately send larger frames must raise or disable the limit
-* Security: the --devconsole page now HTML-escapes the request-derived
-  WebSocket address it echoes back, fixing a reflected XSS reachable when a
-  crafted request path was sent to an exposed dev console
-* Security: the --staticdir file server no longer follows a symlink that
-  points out of the static directory (Go's default http.FileServer does),
-  which could disclose arbitrary file contents; links that stay inside the
-  directory still resolve
-* Security: confine --cgidir CGI execution to the configured directory.
-  Request paths are now normalized and boundary-checked before a CGI
-  script is run, and scripts reached through a symlink out of the
-  directory are refused (thanks @truxton for the report)
+* Security: symlink escapes are confined for all three directory flags.
+  The --staticdir file server no longer follows a symlink that points out
+  of the static directory (Go's default http.FileServer does), which could
+  disclose arbitrary file contents. --cgidir request paths are normalized
+  and boundary-checked before a CGI script is run, and scripts reached
+  through a symlink out of the directory are refused (thanks @truxton for
+  the report). --dir gained the same boundary check in script directory
+  mode. Links that stay inside the configured directory still resolve
 
-* Fixed a flaky integration test (TestENV008_UniqueID and any other test
-  could fail with an unexplained "connection reset by peer"). The harness
-  treated "something is listening on the port" as proof its own server had
-  started, so when the ephemeral port was taken between being picked and
-  being bound, readiness was satisfied by the process holding it while
-  websocketd had already exited. Readiness now proves identity by looking
-  for a unique probe request in the server's own access log, a lost port
-  race is retried on a fresh port, and a server that exits during startup
-  reports its own log instead of timing out
-* CI test matrix no longer cancels the remaining platforms when one fails
+* CI: GitHub Actions runs the tests across 4 platforms (Linux x86/ARM64,
+  macOS ARM64, Windows), on current stable Go on all of them -- recent
+  macOS runners reject binaries built by the EOL Go 1.21 toolchain --
+  with one Linux job still validating the go.mod minimum version. The
+  matrix no longer cancels the remaining platforms when one fails
   (fail-fast: false), so a flake on one runner cannot hide every other
-  platform's result
-* Fixed the Windows-only CGI path test, which had been failing CI since the
-  --cgidir confinement landed. It asserted that a backslash dot segment is
-  refused, but filepath.ToSlash folds "..\" into "../" before the path is
-  cleaned, so such a request lands inside the CGI directory exactly like a
-  "../" one does. No behavior change and no security impact — the resolved
-  paths were always contained; only the test's expectation was wrong
+  platform's result. The lint job runs four linters (go vet, gofmt,
+  staticcheck, gosec) with staticcheck and gosec pinned, and the tests
+  run under the race detector (-race); adding the gofmt check reformatted
+  three files that had drifted. CLAUDE.md claimed no linter was
+  configured; that claim is corrected.
+
+* Test infrastructure: the unit test count went from 7 to 217, alongside
+  a new integration suite of 111 tests covering core WebSocket, process
+  management, CLI flags, HTTP routing, security (origin/env
+  isolation/injection), CGI env vars, edge cases and performance. Its
+  harness is cross-platform, using ephemeral ports and a standalone
+  testcmd binary (no shell dependency). qa/plans/ documents 321 manual
+  and automated test cases across 14 categories.
+
+  Harness and test fixes along the way:
+
+  - a flaky integration test (TestENV008_UniqueID, and any other test
+    could fail with an unexplained "connection reset by peer"). The
+    harness treated "something is listening on the port" as proof its own
+    server had started, so when the ephemeral port was taken between
+    being picked and being bound, readiness was satisfied by the process
+    holding it while websocketd had already exited. Readiness now proves
+    identity by looking for a unique probe request in the server's own
+    access log, a lost port race is retried on a fresh port, and a server
+    that exits during startup reports its own log instead of timing out.
+
+  - the harness now captures websocketd's stdout and stderr as separate
+    streams with per-stream assertions (the log, including relayed child
+    stderr, goes to stdout); the dead-connection test polls the access
+    log instead of sleeping 1.5s, and the child-stderr relay test
+    actually asserts.
+
+  - the Windows-only CGI path test had been failing CI since the --cgidir
+    confinement landed. It asserted that a backslash dot segment is
+    refused, but filepath.ToSlash folds "..\" into "../" before the path
+    is cleaned, so such a request lands inside the CGI directory exactly
+    like a "../" one does. No behavior change and no security impact --
+    the resolved paths were always contained; only the test's expectation
+    was wrong.
+
+  - TestSEC011 gave a false positive when the suite runs as root, having
+    asserted on the substring "root" instead of on evidence of command
+    execution.
+
 * Renamed the default branch from master to main. The Benchmarks workflow
   only triggered on master, so it stopped running entirely after the
   rename; it now triggers on main. Documentation links that pointed at
   github.com/joewalnes/websocketd/tree/master/... (which 404 now that the
   branch is gone) were updated to tree/main/...
-* Modernized the dev console's embedded JS (var -> const/let, function
-  expressions -> arrows); also fixes a scoping bug where a stray
-  semicolon left currentSendHistoryPosition/sendHistoryRollback as
-  accidental implicit globals instead of properly scoped variables (#466)
 * Modernized JS in examples/nodejs and examples/html and the README
   tutorial snippet (var -> const, function expressions -> arrows,
   string concatenation -> template literals); behavior unchanged (#465)
-* Benchmark suite now runs each scenario 3 times and reports the median
-  (bench/run.sh --runs=N), cutting shared-CI-runner noise that was
-  producing false-positive regression alerts; alert threshold raised
-  from 15% to 25% to match. Also fixed the CI Integration docs, which
-  still claimed regressions block merges (they've been advisory-only
-  since the earlier k6-install fix)
+* Benchmarks: a k6 performance benchmarking system (bench/) with 7
+  scenarios, HTML reports and CI regression detection. Each scenario runs
+  3 times and reports the median (bench/run.sh --runs=N), cutting
+  shared-CI-runner noise that was producing false-positive regression
+  alerts; the alert threshold rose from 15% to 25% to match. Benchmarks
+  CI had been failing on every run: k6 is now installed from a pinned
+  GitHub release instead of a flaky apt keyserver, verified against the
+  release's published checksums, and regression alerts are advisory
+  comments rather than a hard PR gate. bench/run.sh no longer silently
+  discards k6 failures (the exit code was read after a pipe through sed);
+  failed scenarios now fail the run. The CI Integration docs, which still
+  claimed regressions block merges, were corrected to match.
+
 * Added --passstderr to forward STDERR to WebSocket clients, tagged
   alongside STDOUT as JSON ({"stream":"stdout"|"stderr","data":"..."});
   STDERR is still logged server-side either way. Mutually exclusive with
@@ -176,46 +576,36 @@ The rest of this release is backward-compatible:
 * Added PowerShell examples (count, greeter, dump-env) alongside the existing
   VBScript/JScript ones — cross-platform via PowerShell Core (#423, thanks
   @kshahar)
-* Release version derivation uses HTTPS instead of SSH for git ls-remote
-  (no SSH setup needed for a public repo)
-* Repaired release tooling: release/Makefile now builds 0.5.x (was stuck on
-  0.4.x), packages are labeled BSD-2-Clause instead of MIT, the man page is
-  installed as websocketd.1.gz (was websocket.1.gz), and packaging recipes
-  use bash (brace expansion broke under dash)
-* Removed vendored Go 1.11.5/1.15.7 download from both Makefiles; neither
-  could build the go 1.21 module — builds now use the system Go toolchain
-* Updated man page: added 9 missing flags (--maxforks, --closems, --pingms,
-  --sslca, --redirport, --binary, --header*), fixed --reverselookup default
-  (false, not true), corrected man section and version metadata
-* Fixed Benchmarks CI failing on every run: k6 is now installed from a pinned
-  GitHub release instead of a flaky apt keyserver, verified against the
-  release's published checksums; regression alerts are now advisory comments
-  rather than a hard PR gate
-* Fixed bench/run.sh silently discarding k6 failures (exit code was read
-  after a pipe through sed); failed scenarios now fail the run
-* Documented --pingms and --sslca in --help output (both were missing)
-* Added gofmt check to CI lint job and pinned staticcheck/gosec versions;
-  reformatted three files that had drifted
-* CI tests now run on current stable Go on all platforms (recent macOS
-  runners reject binaries built by the EOL Go 1.21 toolchain), with one
-  Linux job still validating the go.mod minimum version
+* Release tooling repaired: release/Makefile now builds 0.5.x (was stuck
+  on 0.4.x), packages are labeled BSD-2-Clause instead of MIT, the man
+  page is installed as websocketd.1.gz (was websocket.1.gz), and
+  packaging recipes use bash (brace expansion broke under dash). Release
+  version derivation uses HTTPS instead of SSH for git ls-remote, so no
+  SSH setup is needed for a public repo. The vendored Go 1.11.5/1.15.7
+  download is gone from both Makefiles; neither could build the go 1.21
+  module, so builds use the system Go toolchain.
+
 * Fixed goroutine leak: endpoint readers parked on the output channel send
   were never unblocked after the relay stopped (up to 10MB held per broken
   binary-mode connection); Terminate now signals readers to exit, with
   regression tests covering both the process and WebSocket endpoints
 * Fixed Terminate's process-wait goroutine leaking if SIGKILL never reaps
-* Code cleanup: removed always-false resolveCommand return value and a dead
-  io.EOF check, noteForkCompleted's imbalance branch now actually logs,
-  server-reject channel buffered for all senders, redirect handler reuses
-  its computed host index, missing license header added to handler.go,
-  get_help_message/NewLevel renamed to Go conventions, config tests use
-  t.Setenv
-* Integration harness now captures websocketd's stdout and stderr as
-  separate streams with per-stream assertions (the log, including relayed
-  child stderr, goes to stdout); dead-connection test polls the access log
-  instead of sleeping 1.5s, and the child-stderr relay test actually asserts
-* Fixed TestSEC011 integration test false positive when the suite runs as root
-  (asserted on the substring "root" instead of evidence of command execution)
+* Code cleanup and internal refactoring: ServeHTTP decomposed into
+  focused handler methods (serveWebSocket, serveCGI, serveStatic,
+  serveDevConsole) and parseCommandLine into testable validation
+  functions; the signal escalation loop in Terminate() extracted (it was
+  a 4x repeated pattern); the regex ServeHTTP compiled per HTTP request
+  now compiled once at init, and the dev console's template license
+  substitution cached at init (was per-request); always-false
+  resolveCommand return value and a dead io.EOF check removed;
+  noteForkCompleted's imbalance branch now actually logs; server-reject
+  channel buffered for all senders; redirect handler reuses its computed
+  host index; missing license header added to handler.go; deprecated
+  ioutil.ReadAll replaced with io.ReadAll; unchecked errors flagged by
+  gosec static analysis handled (#418); config tests use t.Setenv; and a
+  round of renames to Go conventions -- snake_case methods to camelCase,
+  error vars to ErrScriptNotFound and ErrForkNotAllowed, env.go's
+  replacers, get_help_message and NewLevel, and the noteForkCompled typo
 * Fixed readFrames processing unexpected message types instead of skipping them
 * Fixed pipe file descriptor leak on partial launch failure
 * Fixed high-severity integer overflow vulnerability by upgrading gorilla/websocket v1.4.0 → v1.5.3
@@ -224,37 +614,16 @@ The rest of this release is backward-compatible:
 * Fixed binary mode pipe deadlock for payloads >64KB (Send() now non-blocking)
 * Fixed GATEWAY_INTERFACE to standard CGI/1.1 per RFC 3875
 * Fixed data race on canonicalHostname (now computed once at server startup)
-* Fixed regex compiled per HTTP request in ServeHTTP (now compiled once at init)
 * Fixed buffer underflow in origin whitelist matching for short origin strings
 * Fixed CGI handler not passing parent environment variables to scripts
 * Fixed panic in GetURLInfo replaced with error return
-* Handled unchecked errors flagged by gosec static analysis (#418)
 * Removed dead link in README (#417)
 * Updated minimum Go version from 1.15 to 1.21
-* Replaced deprecated ioutil.ReadAll with io.ReadAll
-* Renamed noteForkCompled → noteForkCompleted (typo fix)
-* Decomposed ServeHTTP into focused handler methods (serveWebSocket, serveCGI, serveStatic, serveDevConsole)
-* Decomposed parseCommandLine into testable validation functions
 * Split PipeEndpoints into two independent goroutines for proper backpressure
 * WebSocketEndpoint.Terminate now closes connection (clean shutdown on process exit)
 * Added --pingms flag for WebSocket ping/pong dead connection detection (#456)
 * Added --sslca flag for mutual TLS client certificate verification (#413)
-* Added symlink boundary check in script directory mode (security hardening)
-* Extracted signal escalation loop in Terminate() (was 4x repeated pattern)
-* Renamed snake_case methods to camelCase (Go convention)
-* Added GitHub Actions CI across 4 platforms (Linux x86/ARM64, macOS ARM64, Windows)
 * Replaced fork tracking panic with graceful handling
-* Renamed error vars to Go convention (ErrScriptNotFound, ErrForkNotAllowed)
-* Cached dev console template license substitution at init (was per-request)
-* Renamed env.go replacers to idiomatic Go names
-* Added race detector (-race), staticcheck, and gosec to CI lint job
-* Increased test count from 7 to 217
-* Added comprehensive integration test suite (111 tests) covering core WebSocket, process management,
-  CLI flags, HTTP routing, security (origin/env isolation/injection), CGI env vars, edge cases, and performance
-* Cross-platform test harness using ephemeral ports and a standalone testcmd binary (no shell dependency)
-* Added QA test plans (qa/plans/) documenting 321 manual and automated test cases across 14 categories
-* Added k6 performance benchmarking system (bench/) with 7 scenarios, HTML reports, and CI regression detection
-
 Version 0.4.1 (Jan 24, 2021)
 
 * Minor changes only
