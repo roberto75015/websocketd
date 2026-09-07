@@ -58,12 +58,12 @@ func logfuncFlush(_ *libwebsocketd.LogScope) {}
 func TestEscapeControls(t *testing.T) {
 	cases := []struct{ in, want string }{
 		{"plain", "plain"},
-		{"tab\tstays", "tab\tstays"},          // tab is not a terminal escape
-		{"esc\x1b[2J", `esc\x1b[2J`},          // ESC
-		{"bell\x07", `bell\x07`},              // BEL
-		{"cr\rlf\n", "cr\\x0dlf\\x0a"},      // newline forgery
-		{"del\x7f", `del\x7f`},                // DEL
-		{"ok Café ✓", "ok Café ✓"},            // UTF-8 passes through untouched
+		{"tab\tstays", "tab\tstays"},   // tab is not a terminal escape
+		{"esc\x1b[2J", `esc\x1b[2J`},   // ESC
+		{"bell\x07", `bell\x07`},       // BEL
+		{"cr\rlf\n", "cr\\x0dlf\\x0a"}, // newline forgery
+		{"del\x7f", `del\x7f`},         // DEL
+		{"ok Café ✓", "ok Café ✓"},     // UTF-8 passes through untouched
 	}
 	for _, c := range cases {
 		if got := escapeControls(c.in); got != c.want {

@@ -84,9 +84,12 @@ func (we *WebSocketEndpoint) StartReading() {
 }
 
 // setupPingPong configures ping/pong keepalive to detect dead connections.
-// The read deadline is set to 2x the ping interval. Each received pong (or
-// any message) resets the deadline. If the client crashes, no pong arrives,
-// the deadline expires, and NextReader returns an error.
+// The read deadline is set to 2x the ping interval, and only a received
+// pong resets it: gorilla never touches the deadline itself, and nothing
+// below resets it on a data frame. A client that keeps sending but ignores
+// pings is therefore cut off at 2x the interval just the same as a silent
+// one. If the client crashes, no pong arrives, the deadline expires, and
+// NextReader returns an error.
 func (we *WebSocketEndpoint) setupPingPong() {
 	readDeadline := we.pingInterval * 2
 
