@@ -1,0 +1,574 @@
+<!--
+websocketd console
+
+Full documentation at https://websocketd.com/
+
+{{license}}
+-->
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>websocketd console</title>
+<style>
+:root {
+	--bg: #ffffff; --panel: #f7f9f9; --panel2: #ffffff;
+	--line: #e3e8ea; --line2: #f0f3f4; --rule: #cfd8db;
+	--fg: #2c3e50; --dim: #7f8c8d; --dim2: #95a5a6; --faint: #a8b3b6;
+	--accent: #e67e22; --accent2: #d35400; --in: #2980b9; --ok: #27ae60; --err: #c0392b;
+	--sel: #fffaf5; --selline: #e67e22; --hover: #f4f7f8; --tint: #fffaf5;
+	--jkey: #8e44ad; --jnum: #d35400; --jbool: #16a085; --jstr: #2c3e50;
+	--focus: #2980b9; --pill: rgba(39, 174, 96, 0.12);
+}
+html[data-theme="dark"] {
+	--bg: #14171a; --panel: #1b1f24; --panel2: #171b1f;
+	--line: #262b31; --line2: #1e2328; --rule: #2b3138;
+	--fg: #e6e9ec; --dim: #8a949e; --dim2: #6b757e; --faint: #4e565e;
+	--accent: #e67e22; --accent2: #f0913c; --in: #3498db; --ok: #2ecc71; --err: #e74c3c;
+	--sel: #22272d; --selline: #e67e22; --hover: #1e2328; --tint: #1d1b18;
+	--jkey: #b07cc6; --jnum: #e59866; --jbool: #2ecc71; --jstr: #e6e9ec;
+	--focus: #8ab4ff; --pill: rgba(46, 204, 113, 0.14);
+}
+@media (prefers-color-scheme: dark) {
+	html[data-theme="auto"] {
+		--bg: #14171a; --panel: #1b1f24; --panel2: #171b1f;
+		--line: #262b31; --line2: #1e2328; --rule: #2b3138;
+		--fg: #e6e9ec; --dim: #8a949e; --dim2: #6b757e; --faint: #4e565e;
+		--accent: #e67e22; --accent2: #f0913c; --in: #3498db; --ok: #2ecc71; --err: #e74c3c;
+		--sel: #22272d; --selline: #e67e22; --hover: #1e2328; --tint: #1d1b18;
+		--jkey: #b07cc6; --jnum: #e59866; --jbool: #2ecc71; --jstr: #e6e9ec;
+		--focus: #8ab4ff; --pill: rgba(46, 204, 113, 0.14);
+	}
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+/* One template shared by the column header and the rows. Deliberately px,
+   not em: em resolves against each element's own font-size, and the header
+   is set smaller than the rows, so em silently misaligned the two grids. */
+:root { --cols: 104px 24px 60px minmax(0, 1fr); }
+body {
+	background: var(--bg); color: var(--fg);
+	font: 13px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+	/* minmax(0, 1fr), not 1fr: a grid column sized to content lets the widest
+	   row (an input's intrinsic width) push the whole page wider than the
+	   viewport, which is the classic 320px horizontal-scroll blowout. */
+	grid-template-columns: minmax(0, 1fr);
+	height: var(--vh, 100%);
+	-webkit-font-smoothing: antialiased;
+}
+.mono, #url, #send, .frame, #detail-body, #frames, .fhead {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+}
+button, input, textarea, select {
+	font: inherit; color: inherit; background: var(--bg);
+	border: 1px solid var(--rule); border-radius: 5px; padding: 5px 9px;
+}
+button { cursor: pointer; color: var(--fg); }
+button:hover { background: var(--hover); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+.mast {
+	background: var(--panel); color: var(--fg);
+	display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+	border-bottom: 1px solid var(--line);
+}
+.mast h1 {
+	font-size: 12px; font-weight: 700; letter-spacing: 0.06em;
+	color: var(--dim); margin: 0; flex: 1; text-transform: lowercase;
+}
+.mast h1::before {
+	content: ""; display: inline-block; width: 13px; height: 9px; margin-right: 7px;
+	background: var(--accent);
+	clip-path: polygon(0 55%, 15% 55%, 28% 10%, 52% 95%, 68% 55%, 85% 55%, 100% 55%, 100% 72%, 78% 72%, 63% 100%, 38% 20%, 30% 72%, 0 72%);
+	vertical-align: -1px;
+}
+
+.bar { display: flex; flex-wrap: wrap; gap: 7px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
+#url { flex: 1 1 8em; min-width: 0; background: var(--bg); font-size: 12.5px; }
+#status {
+	display: flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 12px;
+	font-size: 11px; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap;
+}
+#status::before { content: "\25CF"; font-size: 9px; }
+#status[data-state="disconnected"] { color: var(--dim2); background: transparent; }
+#status[data-state="connecting"] { color: var(--accent); background: transparent; }
+#status[data-state="connected"] { color: var(--ok); background: var(--pill); }
+
+main { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); min-height: 0; }
+.fhead .z { text-align: right; }
+.fhead {
+	display: grid; grid-template-columns: var(--cols); gap: 0 8px;
+	padding: 6px 10px 5px; color: var(--faint);
+	border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 1;
+	background: var(--bg);
+	font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+}
+#frames { overflow-y: auto; overflow-x: hidden; border-right: 1px solid var(--line); background: var(--bg); }
+.frame {
+	display: grid; grid-template-columns: var(--cols); gap: 0 8px;
+	width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line2);
+	border-radius: 0; padding: 4px 10px; background: transparent; color: var(--fg);
+	border-left: 3px solid transparent; font-size: 12px;
+}
+.frame > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.frame .t { color: var(--faint); }
+.frame .z { color: var(--dim2); text-align: right; }
+.frame .d { font-weight: 700; text-align: center; }
+.frame[data-dir="out"] { background: var(--tint); }
+.frame[data-dir="out"] .d { color: var(--accent); }
+.frame[data-dir="in"] .d { color: var(--in); }
+.frame[data-dir="event"] { font-style: italic; color: var(--dim); }
+.frame[data-dir="event"] .d { color: var(--dim2); }
+.frame.err, .frame[data-dir="event"].err { color: var(--err); font-style: normal; }
+.frame.err .d { color: var(--err); }
+.frame:hover { background: var(--hover); }
+.frame.on { background: var(--sel); border-left-color: var(--selline); }
+#empty { padding: 16px; color: var(--dim); line-height: 1.7; font-size: 12.5px; }
+#empty b { color: var(--fg); }
+
+#detail { display: grid; grid-template-rows: auto auto minmax(0, 1fr); min-height: 0; background: var(--panel2); }
+.dhead { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.dhead b { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+.dhead #detail-size { color: var(--dim); font-size: 12px; }
+.dhead .m { color: var(--dim2); font-size: 11.5px; }
+.dviews { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--line); }
+.dviews button {
+	border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+	background: transparent; color: var(--dim); padding: 8px 10px; font-size: 12px;
+}
+.dviews button:hover { background: transparent; color: var(--fg); }
+.dviews button[aria-pressed="true"] { color: var(--fg); font-weight: 700; border-bottom-color: var(--accent); }
+.dviews .grow { flex: 1; }
+.dviews #copy { border: 1px solid var(--rule); border-radius: 5px; align-self: center; padding: 4px 9px; font-size: 11.5px; color: var(--dim); }
+.dviews #copy:hover { background: var(--hover); color: var(--fg); }
+#detail-body { margin: 0; padding: 12px; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: 12.5px; line-height: 1.65; }
+/* A hex dump is a fixed-width artifact: its columns ARE the information, so
+   it scrolls sideways rather than wrapping. Text payloads still wrap, which
+   is what you want for one very long line. */
+#detail-body[data-view="hex"] {
+	white-space: pre; word-break: normal;
+	/* A 16-byte dump line is ~75 characters. At the body size it overflowed
+	   the inspector pane and pushed the ASCII gutter - the part a human
+	   actually reads - off the right edge. It still scrolls if the pane is
+	   narrower than this. */
+	font-size: 11px; line-height: 1.55;
+}
+#detail-body .k { color: var(--jkey); }
+#detail-body .n { color: var(--jnum); }
+#detail-body .b { color: var(--jbool); }
+#detail-body .p { color: var(--dim2); }
+
+.send { display: flex; gap: 8px; padding: 9px 10px; border-top: 1px solid var(--line); background: var(--panel); }
+#send { flex: 1; min-width: 0; resize: none; height: 3.2em; background: var(--bg); font-size: 12.5px; }
+#sendbtn { background: var(--accent); border-color: var(--accent); color: #ffffff; font-weight: 700; padding: 5px 16px; }
+#sendbtn:hover { background: var(--accent2); border-color: var(--accent2); }
+#counters {
+	display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 6px 10px;
+	border-top: 1px solid var(--line); background: var(--panel); color: var(--dim2);
+	font-size: 11px;
+}
+#counters label { display: flex; align-items: center; gap: 5px; }
+#counters .grow { flex: 1; }
+#counters b { color: var(--fg); font-weight: 700; }
+
+@media (max-width: 620px) {
+	main { grid-template-columns: none; grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr); }
+	#frames { border-right: 0; border-bottom: 1px solid var(--line); }
+	.frame, .fhead { --cols: 74px 22px minmax(0, 1fr); }
+	.frame .z, .fhead .z { display: none; }
+}
+</style>
+<script>
+(function () {
+	'use strict';
+	var KEY = 'websocketd.console.', THEMES = ['auto', 'light', 'dark'];
+	var MAXFRAMES = 500, MAXHIST = 100, PREVIEW = 200, HEXMAX = 4096;
+	var doc = document, root = doc.documentElement;
+
+	function store(k, v) { try { if (v === null) { localStorage.removeItem(KEY + k); } else { localStorage.setItem(KEY + k, v); } } catch (e) { /* private mode */ } }
+	function load(k) { try { return localStorage.getItem(KEY + k); } catch (e) { return null; } }
+
+	// Theme first, before anything paints, so there is no flash.
+	var theme = load('theme');
+	if (theme !== 'light' && theme !== 'dark') { theme = 'auto'; }
+	root.setAttribute('data-theme', theme);
+
+	var ws = null, want = false, frames = [], queue = [], raf = 0, chosen = null;
+	var stick = true, view = 'pretty', seq = 0, sentAt = 0, openedAt = 0, heldMs = 0, tick = 0;
+	var hist = [], hpos = -1, draft = '';
+	var count = { sent: 0, recv: 0, bytes: 0 };
+	var enc = new TextEncoder(), el = {};
+
+	function $(id) { return doc.getElementById(id); }
+	function pad(n, w) { n = String(n); while (n.length < w) { n = '0' + n; } return n; }
+	function stamp(d) { return pad(d.getHours(), 2) + ':' + pad(d.getMinutes(), 2) + ':' + pad(d.getSeconds(), 2) + '.' + pad(d.getMilliseconds(), 3); }
+	function bytes(n) { return n < 1024 ? n + ' B' : (n / 1024).toFixed(1) + ' KiB'; }
+
+	// Everything below renders with textContent. Frames come from whatever
+	// server the user pointed at; none of it is ever parsed as HTML.
+	function text(tag, cls, s) { var e = doc.createElement(tag); if (cls) { e.className = cls; } e.textContent = s; return e; }
+	function oneLine(s) { return s.replace(/[\u0000-\u001f\u007f]/g, '·').slice(0, PREVIEW); }
+
+	function ascii(u8, max) {
+		var n = Math.min(u8.length, max), s = '', i;
+		for (i = 0; i < n; i++) { s += (u8[i] >= 32 && u8[i] < 127) ? String.fromCharCode(u8[i]) : '·'; }
+		return s + (u8.length > n ? '…' : '');
+	}
+
+	function hexdump(u8) {
+		var out = [], n = Math.min(u8.length, HEXMAX), i, j, b, hex, asc;
+		for (i = 0; i < n; i += 16) {
+			hex = ''; asc = '';
+			for (j = 0; j < 16; j++) {
+				if (i + j < n) {
+					b = u8[i + j];
+					hex += (b < 16 ? '0' : '') + b.toString(16) + (j === 7 ? '  ' : ' ');
+					asc += (b >= 32 && b < 127) ? String.fromCharCode(b) : '.';
+				} else { hex += (j === 7 ? '    ' : '   '); asc += ' '; }
+			}
+			out.push(pad(i.toString(16), 8) + '  ' + hex + ' |' + asc + '|');
+		}
+		if (u8.length > n) { out.push('… ' + (u8.length - n) + ' more bytes not shown'); }
+		return out.join('\n') || '(empty)';
+	}
+
+	// ---- transcript -------------------------------------------------------
+
+	function add(f) {
+		f.n = ++seq;
+		f.at = new Date();
+		frames.push(f);
+		queue.push(f);
+		if (!raf) { raf = requestAnimationFrame(flush); }
+	}
+
+	function flush() {
+		raf = 0;
+		var frag = doc.createDocumentFragment(), i;
+		for (i = 0; i < queue.length; i++) { frag.appendChild(node(queue[i])); }
+		queue.length = 0;
+		el.frames.appendChild(frag);
+		// Ring buffer: an unbounded transcript is how a chatty command kills
+		// the tab. Oldest rows go first, from both the array and the DOM.
+		while (frames.length > MAXFRAMES) {
+			var gone = frames.shift();
+			if (gone.el && gone.el.parentNode) { gone.el.parentNode.removeChild(gone.el); }
+			if (chosen === gone) { show(null); }
+		}
+		el.empty.hidden = frames.length > 0;
+		if (stick) { el.frames.scrollTop = el.frames.scrollHeight; }
+	}
+
+	function node(f) {
+		var b = doc.createElement('button');
+		b.type = 'button';
+		b.className = 'frame' + (f.err ? ' err' : '');
+		b.dataset.dir = f.dir;
+		b.dataset.size = String(f.size);
+		b.appendChild(text('span', 't', stamp(f.at)));
+		b.appendChild(text('span', 'd', f.dir === 'out' ? '\u2197' : (f.dir === 'in' ? '\u2199' : '\u2022')));
+		b.appendChild(text('span', 'z', f.size + ' B'));
+		b.appendChild(text('span', 'p', oneLine(f.kind === 'binary' ? '[binary] ' + ascii(f.raw, 80) : f.body)));
+		b.setAttribute('aria-label', (f.dir === 'out' ? 'sent' : f.dir === 'in' ? 'received' : 'event') +
+			' ' + f.size + ' bytes at ' + stamp(f.at) + ': ' + oneLine(f.body));
+		b.addEventListener('click', function () { show(f); });
+		f.el = b;
+		return b;
+	}
+
+	function show(f) {
+		if (chosen && chosen.el) { chosen.el.classList.remove('on'); }
+		chosen = f;
+		if (!f) {
+			el.op.textContent = '—'; el.size.textContent = '—';
+			el.meta.textContent = 'Select a frame to inspect it.';
+			el.body.textContent = '';
+			return;
+		}
+		if (f.el) { f.el.classList.add('on'); }
+		el.op.textContent = f.kind;
+		el.size.textContent = f.size + ' bytes';
+		el.meta.textContent = (f.dir === 'out' ? 'sent' : f.dir === 'in' ? 'received' : 'event') +
+			' · ' + stamp(f.at) + (f.rt != null ? ' · ' + f.rt + ' ms after send' : '');
+		paint();
+	}
+
+	function paint() {
+		var f = chosen, s;
+		if (!f) { return; }
+		el.body.dataset.view = view;
+		if (view === 'hex') {
+			s = hexdump(f.raw || enc.encode(f.body));
+		} else if (view === 'raw') {
+			s = f.kind === 'binary' ? ascii(f.raw, HEXMAX) : f.body;
+		} else {
+			s = f.body;
+			if (f.kind === 'binary') { s = hexdump(f.raw); }
+			else {
+				try {
+					paintJSON(JSON.stringify(JSON.parse(f.body), null, 2));
+					return;
+				} catch (e) { /* not JSON - fall through to plain text */ }
+			}
+		}
+		el.body.textContent = s;
+	}
+
+	// Colour a pretty-printed JSON string. Every literal goes in via
+	// textContent or createTextNode: this runs on server-supplied bytes, so
+	// it must not gain the power to inject markup that the rest of the
+	// rendering path deliberately lacks.
+	var JSONTOK = /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+
+	function paintJSON(pretty) {
+		var body = el.body, last = 0, m;
+		body.textContent = '';
+		JSONTOK.lastIndex = 0;
+		while ((m = JSONTOK.exec(pretty)) !== null) {
+			if (m.index > last) { body.appendChild(doc.createTextNode(pretty.slice(last, m.index))); }
+			if (m[1] !== undefined) {
+				if (m[2]) {
+					body.appendChild(text('span', 'k', m[1]));
+					body.appendChild(doc.createTextNode(m[2]));
+				} else {
+					body.appendChild(text('span', 's', m[1]));
+				}
+			} else if (m[3] !== undefined) {
+				body.appendChild(text('span', 'b', m[3]));
+			} else {
+				body.appendChild(text('span', 'n', m[4]));
+			}
+			last = JSONTOK.lastIndex;
+		}
+		if (last < pretty.length) { body.appendChild(doc.createTextNode(pretty.slice(last))); }
+	}
+
+	function note(msg, bad) { add({ dir: 'event', kind: 'event', body: msg, size: enc.encode(msg).length, err: !!bad }); }
+
+	// ---- connection -------------------------------------------------------
+
+	function state(s) {
+		el.status.dataset.state = s;
+		el.status.textContent = s === 'connected' ? 'CONNECTED' : s === 'connecting' ? 'CONNECTING' : 'DISCONNECTED';
+		el.connect.dataset.state = s;
+		el.connect.textContent = s === 'disconnected' ? 'Connect' : 'Disconnect';
+	}
+
+	function open() {
+		var url = el.url.value.trim();
+		want = true;
+		state('connecting');
+		note('connecting to ' + url);
+		try { ws = new WebSocket(url); } catch (e) {
+			state('disconnected'); note('cannot connect: ' + e.message, true); return;
+		}
+		ws.binaryType = 'arraybuffer';
+		ws.onopen = function () {
+			state('connected'); openedAt = Date.now(); note('open'); el.send.focus();
+			if (!tick) { tick = setInterval(counters, 250); }
+		};
+		ws.onmessage = function (ev) {
+			var f = { dir: 'in', rt: sentAt ? Math.round((performance.now() - sentAt) * 10) / 10 : null };
+			if (typeof ev.data === 'string') {
+				f.kind = 'text'; f.body = ev.data; f.size = enc.encode(ev.data).length;
+			} else {
+				// readAsBinaryString is deprecated and mangles bytes above 0x7f;
+				// arraybuffer gives us the octets the server actually sent.
+				f.raw = new Uint8Array(ev.data);
+				f.kind = 'binary'; f.size = f.raw.length; f.body = '[binary ' + f.size + ' bytes]';
+			}
+			count.recv++; count.bytes += f.size; add(f); counters();
+		};
+		ws.onerror = function () { note('socket error', true); };
+		ws.onclose = function (ev) {
+			ws = null; state('disconnected');
+			if (tick) { clearInterval(tick); tick = 0; }
+			heldMs = openedAt ? Date.now() - openedAt : heldMs; openedAt = 0; counters();
+			note('close · code ' + ev.code + ' · ' + (ev.wasClean ? 'clean' : 'unclean') +
+				(ev.reason ? ' · ' + ev.reason : ''), !ev.wasClean);
+			if (want && el.auto.checked) { note('reconnecting in 1s'); setTimeout(function () { if (want && !ws) { open(); } }, 1000); }
+		};
+	}
+
+	function disconnect() { want = false; if (ws) { ws.close(1000, 'closed by console'); } }
+
+	// The button toggles. Enter in the address bar always (re)connects, which
+	// means waiting for any old socket to finish closing first.
+	function toggle() { if (ws) { disconnect(); } else { open(); } }
+
+	function reconnect() {
+		if (!ws) { open(); return; }
+		ws.addEventListener('close', function () { open(); }, { once: true });
+		disconnect();
+	}
+
+	function send() {
+		var v = el.send.value;
+		if (!v) { return; }
+		var size = enc.encode(v).length;
+		if (!ws || ws.readyState !== 1) { note('cannot send: not connected', true); return; }
+		add({ dir: 'out', kind: 'text', body: v, size: size });
+		count.sent++; count.bytes += size; counters();
+		sentAt = performance.now();
+		try { ws.send(v); } catch (e) { note('cannot send: ' + e.message, true); return; }
+		remember(v);
+		el.send.value = ''; hpos = -1; draft = '';
+	}
+
+	function counters() {
+		el.cs.textContent = count.sent;
+		el.cr.textContent = count.recv;
+		el.cb.textContent = bytes(count.bytes);
+		el.ct.textContent = ((openedAt ? Date.now() - openedAt : heldMs) / 1000).toFixed(1) + 's';
+	}
+
+	// ---- send history -----------------------------------------------------
+
+	function remember(msg) {
+		if (hist[0] !== msg) { hist.unshift(msg); }
+		while (hist.length > MAXHIST) { hist.pop(); }
+		store('sendhistory', JSON.stringify(hist));
+	}
+
+	function recall(step) {
+		if (hpos === -1) { draft = el.send.value; }
+		hpos = Math.max(-1, Math.min(hist.length - 1, hpos + step));
+		el.send.value = hpos === -1 ? draft : hist[hpos];
+		var end = el.send.value.length;
+		setTimeout(function () { el.send.setSelectionRange(end, end); }, 0);
+	}
+
+	// ---- wiring -----------------------------------------------------------
+
+	function init() {
+		['url', 'connect', 'status', 'send', 'sendbtn', 'frames', 'detail', 'clear', 'theme', 'empty', 'copy', 'auto'].forEach(function (id) { el[id] = $(id); });
+		el.op = $('detail-opcode'); el.size = $('detail-size'); el.body = $('detail-body'); el.meta = $('detail-meta');
+		el.cs = $('count-sent'); el.cr = $('count-recv'); el.cb = $('count-bytes'); el.ct = $('count-time');
+
+		el.url.value = location.href.replace(/^http/, 'ws');
+		try { hist = JSON.parse(load('sendhistory') || '[]'); } catch (e) { hist = []; }
+		state('disconnected');
+		show(null);
+		counters();
+		el.url.focus();
+
+		el.connect.addEventListener('click', toggle);
+		el.url.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); reconnect(); } });
+		el.sendbtn.addEventListener('click', function () { send(); el.send.focus(); });
+		el.send.addEventListener('keydown', function (ev) {
+			if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); send(); }
+			// Once history navigation is active (hpos !== -1) Up/Down keep
+			// working regardless of cursor position: recall() always leaves
+			// the cursor at the end of the recalled text, so gating a repeat
+			// Up on selectionStart === 0 would only ever fire once, then go
+			// silent on every further press. Outside history mode the cursor
+			// checks still apply, so Up/Down are free for multi-line editing.
+			else if (ev.key === 'ArrowUp' && (hpos !== -1 || el.send.selectionStart === 0)) { ev.preventDefault(); recall(1); }
+			else if (ev.key === 'ArrowDown' && (hpos !== -1 || el.send.selectionStart === el.send.value.length)) { ev.preventDefault(); recall(-1); }
+		});
+		el.clear.addEventListener('click', function () {
+			frames.length = 0; queue.length = 0;
+			while (el.frames.lastChild !== el.empty) { el.frames.removeChild(el.frames.lastChild); }
+			count.sent = count.recv = count.bytes = 0; heldMs = 0; openedAt = ws ? Date.now() : 0;
+			el.empty.hidden = false; stick = true; show(null); counters(); el.send.focus();
+		});
+		el.theme.addEventListener('click', function () {
+			theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+			root.setAttribute('data-theme', theme);
+			el.theme.textContent = 'Theme: ' + theme;
+			store('theme', theme === 'auto' ? null : theme);
+		});
+		el.theme.textContent = 'Theme: ' + theme;
+		el.copy.addEventListener('click', function () {
+			if (!chosen) { return; }
+			var s = el.body.textContent;
+			if (navigator.clipboard) { navigator.clipboard.writeText(s).then(null, function () {}); }
+			el.copy.textContent = 'Copied';
+			setTimeout(function () { el.copy.textContent = 'Copy'; }, 900);
+		});
+		Array.prototype.forEach.call(doc.querySelectorAll('.dviews button[data-view]'), function (b) {
+			b.addEventListener('click', function () {
+				view = b.dataset.view;
+				Array.prototype.forEach.call(doc.querySelectorAll('.dviews button[data-view]'), function (o) {
+					o.setAttribute('aria-pressed', String(o === b));
+				});
+				paint();
+			});
+		});
+		// Sticky autoscroll, until the reader scrolls up to look at something.
+		el.frames.addEventListener('scroll', function () {
+			stick = el.frames.scrollHeight - el.frames.scrollTop - el.frames.clientHeight < 24;
+		});
+		// iOS Safari shrinks the visual viewport for the soft keyboard without
+		// resizing the layout viewport, which would hide the send bar.
+		if (window.visualViewport) {
+			var vv = window.visualViewport;
+			var fit = function () { root.style.setProperty('--vh', vv.height + 'px'); };
+			vv.addEventListener('resize', fit);
+			fit();
+		}
+	}
+
+	doc.addEventListener('DOMContentLoaded', init);
+}());
+</script>
+</head>
+<body>
+<header class="mast">
+	<h1>websocketd console</h1>
+	<button id="theme" type="button" title="Theme: auto, light or dark">Theme: auto</button>
+	<button id="clear" type="button" title="Clear the transcript">Clear</button>
+</header>
+
+<div class="bar">
+	<label class="sr" for="url">WebSocket URL</label>
+	<input id="url" type="text" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="ws://host:port/">
+	<button id="connect" type="button" data-state="disconnected">Connect</button>
+	<span id="status" data-state="disconnected" role="status">DISCONNECTED</span>
+</div>
+
+<main>
+	<div id="frames" role="log" aria-live="polite" aria-relevant="additions" aria-label="Frames" tabindex="0">
+		<div class="fhead" aria-hidden="true"><span>time</span><span>dir</span><span class="z">size</span><span>message</span></div>
+		<p id="empty">Press <b>Enter</b> in the address bar to connect, then type below and press
+		<b>Enter</b> to send. <b>Shift+Enter</b> makes a newline, <b>Up</b> recalls what you sent
+		before. Every frame lands here &mdash; click one to inspect it.</p>
+	</div>
+
+	<div id="detail" aria-label="Selected frame">
+		<div class="dhead">
+			<b id="detail-opcode">&mdash;</b>
+			<span id="detail-size">&mdash;</span>
+			<span class="m" id="detail-meta">Select a frame to inspect it.</span>
+		</div>
+		<div class="dviews">
+			<button type="button" data-view="pretty" aria-pressed="true">Pretty</button>
+			<button type="button" data-view="raw" aria-pressed="false">Raw</button>
+			<button type="button" data-view="hex" aria-pressed="false">Hex</button>
+			<span class="grow"></span>
+			<button id="copy" type="button" title="Copy this frame to the clipboard">Copy</button>
+		</div>
+		<pre id="detail-body"></pre>
+	</div>
+</main>
+
+<div class="send">
+	<label class="sr" for="send">Message to send</label>
+	<textarea id="send" spellcheck="false" autocomplete="off" placeholder="Type a message, press Enter to send"></textarea>
+	<button id="sendbtn" type="button">Send</button>
+</div>
+
+<div id="counters">
+	<span>sent <b id="count-sent">0</b></span>
+	<span>received <b id="count-recv">0</b></span>
+	<span>traffic <b id="count-bytes">0 B</b></span>
+	<span>open <b id="count-time">0.0s</b></span>
+	<span class="grow"></span>
+	<label for="auto"><input id="auto" type="checkbox"> auto-reconnect</label>
+</div>
+</body>
+</html>
