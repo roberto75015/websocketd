@@ -2,3 +2,4 @@ websocketd
 go-*
 bench/results/
 __pycache__/
+.verdict
