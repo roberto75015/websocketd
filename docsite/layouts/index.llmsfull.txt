@@ -1,0 +1,62 @@
+{{- /*
+  llms-full.txt: every content page concatenated into one plain-text
+  document, in site-map order (see docsite/PLAN.md and
+  docs-archive/MANUAL_TOOLING.md, "LLM-readable output"). A build-time
+  Hugo output format, not a hand-maintained file — it walks
+  .Site.Pages so it can never drift from what's actually published.
+
+  Ordering: PLAN.md's site map top to bottom, which is also Diataxis
+  order: tutorial, how-to, reference, explanation. how-to's three
+  subsections are listed explicitly since they're nested one level
+  deeper than the other sections, and each must precede the bare
+  "/how-to/" prefix or that prefix would swallow them in the wrong
+  order. Anything not matched by a listed prefix (should only be
+  taxonomy/alias pages, if any) is appended at the end rather than
+  silently dropped.
+*/ -}}
+{{- /*
+  Each entry is a site-root path. It must be turned into the form
+  .RelPermalink actually has before it can be compared: baseURL is
+  https://websocketd.com/docs/, so RelPermalink reads "/docs/start/",
+  not "/start/". Comparing the raw "/start/" matched nothing, every page
+  fell through to the unmatched-prefix tail below, and the bundle came
+  out in Hugo's own weight order rather than site-map order. Stripping
+  the leading slash and passing it through relURL is the same joining
+  rule the nav and the link render hook use.
+*/ -}}
+{{- $order := slice -}}
+{{- range slice "/start/" "/how-to/languages/" "/how-to/deploy/" "/how-to/patterns/" "/how-to/" "/reference/" "/understanding/" "/faq/" "/changelog/" -}}
+{{- $order = $order | append ((strings.TrimPrefix "/" .) | relURL) -}}
+{{- end -}}
+{{- $all := where site.Pages "Kind" "in" (slice "home" "section" "page") -}}
+{{- $emitted := slice -}}
+websocketd — full documentation (generated, do not edit)
+Source: {{ site.BaseURL }}
+Curated index: {{ "/llms.txt" | absURL }}
+
+{{ range $prefix := $order }}
+{{- range $all }}
+{{- if and (ne .Kind "home") (strings.HasPrefix .RelPermalink $prefix) (not (in $emitted .RelPermalink)) }}
+{{- $emitted = $emitted | append .RelPermalink }}
+========================================================================
+{{ .Title }}
+{{ .Permalink }}
+========================================================================
+
+{{ .Plain }}
+
+{{ end -}}
+{{- end -}}
+{{- end -}}
+{{- range $all }}
+{{- if and (ne .Kind "home") (not (in $emitted .RelPermalink)) }}
+{{- $emitted = $emitted | append .RelPermalink }}
+========================================================================
+{{ .Title }}
+{{ .Permalink }}
+========================================================================
+
+{{ .Plain }}
+
+{{ end -}}
+{{- end -}}

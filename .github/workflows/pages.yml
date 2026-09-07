@@ -5,6 +5,17 @@ on:
     branches: [main]
     paths:
       - 'website/**'
+      - 'docsite/**'
+      - '.github/workflows/pages.yml'
+  # Site PRs get the link-check job below without deploying anything.
+  # website/** is here as well as docsite/**: the homepage links into
+  # /docs/ in six places, so a docs page that moves breaks the homepage,
+  # and a homepage typo breaks a link that no other job looks at. Before
+  # this was widened a homepage-only change got no CI at all.
+  pull_request:
+    paths:
+      - 'website/**'
+      - 'docsite/**'
       - '.github/workflows/pages.yml'
   # Manual runs are useful to redeploy without touching the site, e.g. after
   # changing Pages settings.
@@ -25,6 +36,9 @@ concurrency:
 
 jobs:
   deploy:
+    # Never deploys on a pull_request -- that event only exists here to
+    # trigger docs-link-check without touching Pages.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -40,11 +54,101 @@ jobs:
           test -f website/CNAME || { echo "website/CNAME is missing"; exit 1; }
           echo "custom domain: $(cat website/CNAME)"
 
+      # Pinned exact version (matching this repo's existing convention of
+      # pinning CI tool versions with a stated reason — see test.yml's lint
+      # job pinning Go 1.24.x so gofmt output can't move under us). Bump
+      # deliberately; a floating Hugo version would let a new Hugo release
+      # silently change how every docs page on this site renders.
+      - uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: '0.165.0'
+          extended: true
+
+      # Docs site lives at /docs on this same domain: GitHub Pages only
+      # supports one custom-domain deployment per repo, so a separate
+      # docs.websocketd.com subdomain can't coexist with this homepage
+      # from one repo — a path keeps everything on one deploy instead.
+      # (docs-archive/MANUAL_TOOLING.md recommended that subdomain; this
+      # is where that recommendation was overruled.)
+      # hugo.toml's baseURL is already set to
+      # https://websocketd.com/docs/, so every relURL/RelPermalink in the
+      # theme resolves correctly once the built output lands in ./docs
+      # inside this same artifact.
+      - name: Build docs site
+        working-directory: docsite
+        run: hugo --minify
+
+      - name: Assemble combined site
+        run: |
+          rm -rf _site
+          mkdir -p _site
+          cp -R website/. _site/
+          mkdir -p _site/docs
+          cp -R docsite/public/. _site/docs/
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: website
+          path: _site
 
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  docs-link-check:
+    # Catches a dead internal link before it ships — same "don't let a
+    # green build hide a real break" discipline CLAUDE.md already applies
+    # to qa/integration. Runs on PRs too, since a broken link is cheap to
+    # catch before merge and annoying to notice after. Separate from the
+    # deploy job (which only runs on push to main) so a PR gets this
+    # signal without needing Pages permissions at all.
+    #
+    # It covers the homepage as well as the docs site. It did not before:
+    # the assembly step below built only _site/docs, so website/index.html
+    # was not in the tree lychee walked and no homepage link could fail
+    # this job. Measured on this tree: docs-only assembly reports 1730 OK
+    # / 0 errors even with a deliberately misspelled /docs/start/tutorail/
+    # link sitting in the homepage; assembling the full site the way the
+    # deploy job does takes it to 1748 OK, and the same injected typo
+    # fails it with exit 2 naming that path.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: '0.165.0'
+          extended: true
+      - name: Build
+        working-directory: docsite
+        run: hugo --minify
+      # The link check has to run against the site laid out the way it is
+      # actually served, not against docsite/public directly. hugo.toml's
+      # baseURL is https://websocketd.com/docs/, so every root-absolute
+      # link in the built HTML reads /docs/..., while docsite/public holds
+      # those pages at its own root (public/start/, not public/docs/start/).
+      # Pointing --root-dir at docsite/public therefore resolved every one
+      # of those links to a path that cannot exist: measured on an
+      # unmodified tree, the old invocation reported 1734 errors and 5 OK,
+      # so this job could never have gone green and could never have
+      # reported a real broken link as distinct from the noise. Assembling
+      # _site/docs first -- the same shape the deploy job above builds --
+      # takes the same tree to 1738 OK, and an injected broken link still
+      # fails it.
+      # Same two cp commands as the deploy job's "Assemble combined site"
+      # step, deliberately: the tree that is link-checked has to be the
+      # tree that is served, or the check is measuring something else.
+      - name: Assemble site for link checking
+        run: |
+          rm -rf _site
+          mkdir -p _site
+          cp -R website/. _site/
+          mkdir -p _site/docs
+          cp -R docsite/public/. _site/docs/
+      - name: Check links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --offline --no-progress
+            --root-dir _site
+            _site
+          fail: true

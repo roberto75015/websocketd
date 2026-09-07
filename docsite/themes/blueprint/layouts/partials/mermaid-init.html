@@ -1,0 +1,17 @@
+{{/* Pinned version: bump deliberately, not on every build (matches this
+     repo's convention of pinning CI tool versions with a stated reason,
+     e.g. test.yml's Go 1.24.x lint pin). Loaded on every page rather than
+     conditionally: this is a small docs site, and content pages render
+     lazily so a page-scoped "does this page use mermaid" flag would need
+     to run after .Content is already evaluated, defeating the point. */}}
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+  (function () {
+    var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var stored = null;
+    try { stored = localStorage.getItem('websocketd-docs-theme'); } catch (e) {}
+    if (stored === 'dark') dark = true;
+    if (stored === 'light') dark = false;
+    mermaid.initialize({ startOnLoad: true, theme: dark ? 'dark' : 'default' });
+  })();
+</script>

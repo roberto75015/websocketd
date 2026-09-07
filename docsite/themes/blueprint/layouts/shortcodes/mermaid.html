@@ -1,0 +1,8 @@
+{{/* Usage: {{< mermaid >}}graph TD; A-->B{{< /mermaid >}}
+     Rendered client-side by mermaid.js (loaded once, pinned version, in
+     baseof.html's footer partial) rather than at build time, since Hugo
+     has no built-in Mermaid renderer and this avoids adding a Node
+     toolchain just to pre-render diagrams (see docs-archive/MANUAL_TOOLING.md). */}}
+<pre class="mermaid">
+{{- .Inner | safeHTML -}}
+</pre>

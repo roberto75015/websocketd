@@ -1,0 +1,665 @@
+/*
+ * websocketd docs — "Engineering Blueprint" theme
+ *
+ * ============================================================
+ * BASELINE GRID MATH — read this before touching any font-size
+ * or line-height value below. Every derived number is computed
+ * from the constants in this block; nothing here is a magic
+ * number typed by hand.
+ * ============================================================
+ *
+ * Grid unit U = 8px. Chosen because it divides evenly into both
+ * common root font sizes (16px = 2U) and common heading sizes
+ * (24/32/40px), and is the de-facto standard spacing unit used
+ * by most 8pt grid systems (Material, iOS HIG, etc.) — no need
+ * to invent a bespoke unit for a docs site.
+ *
+ * Every role's line-height (--lh) below is a WHOLE MULTIPLE of U,
+ * chosen large enough that (ascent + descent) * font-size does not
+ * exceed it (otherwise glyphs would clip out of their own grid
+ * band):
+ *
+ *   role   font        F (px)   ascent+descent * F   chosen n*U
+ *   h1     mono         32       1.32 * 32 = 42.2      5U = 40  *
+ *   h2     mono         24       1.32 * 24 = 31.7      4U = 32
+ *   h3     mono         18       1.32 * 18 = 23.8      3U = 24
+ *   body   sans         16       1.30 * 16 = 20.8      3U = 24
+ *   small  sans         12       1.30 * 12 = 15.6      2U = 16
+ *   code   mono         14       1.32 * 14 = 18.5      3U = 24
+ *
+ *   * h1 is the one role where 4U (32px) would clip (42.2 > 32),
+ *     so it gets 5U instead — the table above is exactly the
+ *     check that catches that, not a guess.
+ *
+ * Font metrics used (measured from the actual font files, given
+ * as fractions of em — NOT approximated):
+ *
+ *   JetBrains Mono:  cap-height 0.730   ascent 1.020   descent 0.300
+ *   IBM Plex Sans:   cap-height 0.698   ascent 1.025   descent 0.275
+ *
+ * Two alignment mechanisms, selected via @supports:
+ *
+ * MODERN (text-box-trim support):
+ *   `text-box-trim: trim-both; text-box-edge: cap alphabetic;`
+ *   trims the line box down to exactly the cap-height-to-alphabetic-
+ *   baseline distance (height = cap * F), discarding the browser's
+ *   default half-leading above/below. We then add:
+ *
+ *     padding-top = LH - cap * F
+ *     padding-bottom = 0
+ *
+ *   which pads the trimmed box back out to exactly LH, with all of
+ *   the slack placed above the glyphs — so the baseline sits flush
+ *   on the box's bottom edge. Stack these boxes with zero margin
+ *   between them and every baseline lands exactly on a multiple of
+ *   U from the top of the flow.
+ *
+ * CLASSIC FALLBACK (`@supports not (text-box-trim: trim-both)`):
+ *   text-box-trim isn't supported everywhere yet (2026), so browsers
+ *   without it get a manual version of the same idea, adapted from
+ *   the "half-leading" formula in a CSS baseline-grid technique:
+ *
+ *     shift = LH/2 - (ascent - descent)/2 * F
+ *
+ *   `shift` is the padding-top a browser would need to add to a
+ *   default LH-tall, auto-centered line box so the baseline moves
+ *   from its natural centered position down to the box's bottom
+ *   edge (same target as the modern path: baseline flush at LH).
+ *
+ *   IMPORTANT ADAPTATION: to make this exact (not just "close"),
+ *   these roles also set `line-height: 1`, which — unlike `normal`
+ *   — is a value the CSS spec pins to exactly 1 * font-size, giving
+ *   a *fixed, known* line-box height of F to build on top of,
+ *   instead of a UA-dependent "normal" box. With that box height
+ *   fixed at F, the total rendered height of the element is
+ *   `padding-top + F + padding-bottom`, so for that to equal LH:
+ *
+ *     padding-bottom = LH - F - shift
+ *
+ *   (the brief's shorthand "padding-bottom: U - shift" is the same
+ *   idea specialized to the single-grid-unit case where F is folded
+ *   into U; written out in full for an arbitrary role it has to
+ *   subtract F explicitly or the total stops summing to a multiple
+ *   of U — verify: padding-top + F + padding-bottom
+ *   = shift + F + (LH - F - shift) = LH, for any F/LH/shift. Good.)
+ *
+ * Every padding-top and padding-bottom below is one of these two
+ * formulas, written as a literal `calc()` so the arithmetic is
+ * checkable in devtools, not baked into a decimal by hand.
+ *
+ * NOTE: never write a bare "*" immediately followed by "/" inside this
+ * comment (e.g. a glob like "--pt-<star>/--pb-<star>"). CSS block
+ * comments do not nest and have no escape: that sequence closes the
+ * comment early, and the parser then eats everything up to the next
+ * "{" as a selector -- which silently deletes the whole :root token
+ * block below and unstyles the entire site. That is exactly what
+ * happened here once; hence this note.
+ */
+
+:root {
+  --u: 8px; /* baseline grid unit */
+
+  /* Font metrics, as fractions of 1em (see table above). */
+  --mono-cap: 0.730;
+  --mono-asc: 1.020;
+  --mono-desc: 0.300;
+  --sans-cap: 0.698;
+  --sans-asc: 1.025;
+  --sans-desc: 0.275;
+
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* ---- light palette (default) ---- */
+  --bg: #f7f5ef;
+  --bg-panel: #ffffff;
+  --fg: #1b1f23;
+  --fg-muted: #565b61;
+  --accent: #1d5fae;
+  --accent-soft: #dbe8fb;
+  --grid-line: rgba(29, 95, 174, 0.10);
+  --grid-line-strong: rgba(29, 95, 174, 0.18);
+  --border: #d8d3c4;
+  --code-bg: #eef0e6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14181c;
+    --bg-panel: #1b2126;
+    --fg: #e8e6df;
+    --fg-muted: #a2a9ad;
+    --accent: #6fb1ff;
+    --accent-soft: #1e2c3d;
+    --grid-line: rgba(111, 177, 255, 0.08);
+    --grid-line-strong: rgba(111, 177, 255, 0.16);
+    --border: #2c343a;
+    --code-bg: #1f2731;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #14181c;
+  --bg-panel: #1b2126;
+  --fg: #e8e6df;
+  --fg-muted: #a2a9ad;
+  --accent: #6fb1ff;
+  --accent-soft: #1e2c3d;
+  --grid-line: rgba(111, 177, 255, 0.08);
+  --grid-line-strong: rgba(111, 177, 255, 0.16);
+  --border: #2c343a;
+  --code-bg: #1f2731;
+}
+
+* { box-sizing: border-box; }
+
+html { color-scheme: light dark; }
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  /* Grid-paper background: two repeating-linear-gradients, one per axis,
+     spaced at U so the paper's grid matches the typographic grid. No
+     image asset — pure CSS, cheap to theme for dark mode via the same
+     custom properties used everywhere else. */
+  background-image:
+    repeating-linear-gradient(0deg, var(--grid-line) 0, var(--grid-line) 1px, transparent 1px, transparent var(--u)),
+    repeating-linear-gradient(90deg, var(--grid-line) 0, var(--grid-line) 1px, transparent 1px, transparent var(--u)),
+    repeating-linear-gradient(0deg, var(--grid-line-strong) 0, var(--grid-line-strong) 1px, transparent 1px, transparent calc(var(--u) * 8)),
+    repeating-linear-gradient(90deg, var(--grid-line-strong) 0, var(--grid-line-strong) 1px, transparent 1px, transparent calc(var(--u) * 8));
+  /* NOT background-attachment: fixed. A fixed background is painted
+     relative to the viewport, so the grid lines stay put while the text
+     scrolls past them -- the type would only ever sit on the grid at
+     scroll offsets that happen to be multiples of U, and the paper
+     visibly stopped after one viewport height on a long page. Scrolling
+     the paper with the document is the whole point of a baseline grid. */
+  background-attachment: scroll;
+}
+
+a { color: var(--accent); }
+a:hover { text-decoration-thickness: 2px; }
+
+/* ---------------------------------------------------------------
+ * Baseline-grid text roles
+ * ------------------------------------------------------------- */
+
+h1, h2, h3, .role-body, body, small, .role-small,
+code, kbd, pre, .role-code {
+  margin: 0;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  --cap: var(--mono-cap);
+  --asc: var(--mono-asc);
+  --desc: var(--mono-desc);
+}
+
+h1 { --f: 32px; --lh: calc(var(--u) * 5); font-size: var(--f); }
+h2 { --f: 24px; --lh: calc(var(--u) * 4); font-size: var(--f); }
+h3 { --f: 18px; --lh: calc(var(--u) * 3); font-size: var(--f); }
+
+p, li, .role-body {
+  font-family: var(--font-sans);
+  --cap: var(--sans-cap);
+  --asc: var(--sans-asc);
+  --desc: var(--sans-desc);
+  --f: 16px;
+  --lh: calc(var(--u) * 3);
+  font-size: var(--f);
+}
+
+small, .role-small, .site-nav {
+  font-family: var(--font-sans);
+  --cap: var(--sans-cap);
+  --asc: var(--sans-asc);
+  --desc: var(--sans-desc);
+  --f: 12px;
+  --lh: calc(var(--u) * 2);
+  font-size: var(--f);
+}
+
+pre, code, .role-code {
+  font-family: var(--font-mono);
+  --cap: var(--mono-cap);
+  --asc: var(--mono-asc);
+  --desc: var(--mono-desc);
+  --f: 14px;
+  --lh: calc(var(--u) * 3);
+  font-size: var(--f);
+}
+
+/* Modern: text-box-trim does the cap-to-baseline trim; we only need
+   the residual pad-out to a full grid multiple, all on top. */
+h1, h2, h3, p, li, .role-body, small, .role-small, .site-nav, pre, code, .role-code {
+  line-height: var(--lh);
+}
+
+@supports (text-box-trim: trim-both) or (text-box-edge: cap alphabetic) {
+  h1, h2, h3, p, li, .role-body, small, .role-small, .site-nav, pre, code, .role-code {
+    text-box-trim: trim-both;
+    text-box-edge: cap alphabetic;
+    padding-top: calc(var(--lh) - var(--cap) * var(--f));
+    padding-bottom: 0;
+  }
+}
+
+/* Classic fallback: line-height:1 gives a known F-tall box; padding
+   computed from ascent/descent moves the baseline onto the grid line
+   and pads the total height back out to LH. See math block above. */
+@supports not ((text-box-trim: trim-both) or (text-box-edge: cap alphabetic)) {
+  h1, h2, h3, p, li, .role-body, small, .role-small, .site-nav, pre, code, .role-code {
+    line-height: 1;
+    padding-top: calc(var(--lh) / 2 - (var(--asc) - var(--desc)) / 2 * var(--f));
+    padding-bottom: calc(var(--lh) - var(--f) - (var(--lh) / 2 - (var(--asc) - var(--desc)) / 2 * var(--f)));
+  }
+}
+
+/* Vertical rhythm between blocks: gaps are whole multiples of U so
+   the grid stays intact across elements, not just within one.
+
+   .hero is listed alongside .content because the homepage puts its
+   heading, pitch and body inside <div class="hero">, one level deeper
+   than this rule reaches -- so the home page was the one page on the
+   site with no block spacing at all, with the pitch line sitting
+   directly under the h1 with no gap. */
+.content > * + *,
+.hero > * + * { margin-top: calc(var(--u) * 2); }
+.content > h2,
+.hero > h2 { margin-top: calc(var(--u) * 4); }
+.content > h3,
+.hero > h3 { margin-top: calc(var(--u) * 3); }
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding-left: calc(var(--u) * 2);
+  padding-right: calc(var(--u) * 2);
+  overflow-x: auto;
+}
+
+/* The baseline-grid rule above gives every text role padding-top: <slack>
+   and padding-bottom: 0, which is right for a run of flowing text but
+   wrong for a *box* with a visible background: it rendered code blocks
+   with ~14px of air above the first line and none at all below the last,
+   which reads as a misaligned block, not as rhythm. Panels get an even
+   2U band top and bottom instead; the inner lines are still LH-spaced,
+   so the block's total height stays a whole multiple of U. */
+pre,
+.chroma {
+  /* 1px is taken off each side to pay for the 1px border, so the whole
+     bordered box measures 2U + n*LH + 2U and the flow below a code block
+     is still on the grid. */
+  padding-top: calc(var(--u) * 2 - 1px);
+  padding-bottom: calc(var(--u) * 2 - 1px);
+}
+
+/* Chroma nests <code> inside <pre>; without this the inner element takes
+   the generic code role's padding-top on top of the panel's own. */
+pre > code {
+  padding: 0;
+  display: block;
+}
+
+/* Mermaid renders its diagram as an <svg> INSIDE the <pre class="mermaid">
+   the shortcode emits, so the diagram inherited the code role: 24px
+   line-height plus text-box-trim/text-box-edge: cap alphabetic. The trim
+   crops the block's first line box down to the FONT's cap height, and an
+   inline SVG hangs almost entirely above the baseline -- so every diagram
+   on the site rendered as a ~40px sliver showing only the bottom edge of
+   the top row of boxes. Verified in headless Chrome on
+   /start/what-is-this/ at 1440px, both colour schemes.
+
+   A diagram is a figure, not a line of type: it opts out of the text
+   roles entirely and gets a plain panel to sit in. */
+pre.mermaid {
+  text-box-trim: none;
+  text-box-edge: auto;
+  line-height: normal;
+  font-family: var(--font-sans);
+  background: var(--bg-panel);
+  padding: calc(var(--u) * 2 - 1px) calc(var(--u) * 2);
+  text-align: center;
+}
+
+pre.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+:not(pre) > code {
+  background: var(--code-bg);
+  border-radius: 3px;
+  padding: 0 4px;
+  /* An inline <code> inherits the code role above: 14px mono, its own
+     24px line-height, and text-box-trim. Inside a 16px sans paragraph
+     that inline box was tall enough to push its line box past 24px, so
+     every prose line containing a flag name added ~1px and the paragraph
+     -- and everything below it -- slid off the grid. Handing the inline
+     box back to the paragraph's own strut keeps the line at exactly LH;
+     the mono glyphs still sit on the paragraph's baseline because that
+     is what the strut defines.
+
+     line-height: 1 (not `inherit`) is what actually does it. A line box
+     is max(all inline ascents) + max(all inline descents), so it is the
+     mono DESCENT that overflows, not the total height: at 14px/24px the
+     code box hangs 6.96px below the baseline against the 16px sans
+     strut's 6.00px, and the line grew to 24.96px -- measured, and it is
+     exactly the +1px per code-bearing line that was pushing whole
+     paragraphs off the grid. Collapsing the inline box to its own em
+     box (14px) puts both its ascent and its descent inside the strut,
+     so the line stays at LH. The code background still paints, because
+     an inline background box is drawn over the font's content area
+     rather than over its line-height. */
+  line-height: 1;
+  text-box-trim: none;
+  text-box-edge: auto;
+  vertical-align: baseline;
+}
+
+/* Inline code inside a heading: without this it drops to the code role's
+   14px inside a 24px or 32px heading, so a heading that mixes prose and a
+   flag name rendered at two visibly different sizes on one line. Sizing
+   it in em keeps it proportional to whichever heading it lands in and
+   keeps the heading's own line-height (and therefore the grid) intact. */
+h1 code, h2 code, h3 code {
+  font-size: 0.85em;
+  /* Same line-box reasoning as inline code in prose, below. */
+  line-height: 1;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* ---------------------------------------------------------------
+ * Flow content: media, tables, quotes, rules
+ * ------------------------------------------------------------- */
+
+/* Screenshots in content are authored at their native size (the dev
+   console shots are 1200px wide). Without a cap they overflowed the
+   content column and forced the whole page to scroll sideways -- at
+   390px the page was three viewports wide. */
+img, video, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* A long unbroken token in prose (a URL, a flag string) must wrap rather
+   than push the column open. */
+.content { overflow-wrap: break-word; }
+
+/* Tables shipped completely unstyled: 1px of UA cell padding, no rules,
+   no header emphasis, so adjacent rows ran together and the reference
+   tables were hard to read a row out of. */
+.table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.content table {
+  border-collapse: collapse;
+  width: 100%;
+  text-align: left;
+}
+
+.content th,
+.content td {
+  font-family: var(--font-sans);
+  --cap: var(--sans-cap);
+  --asc: var(--sans-asc);
+  --desc: var(--sans-desc);
+  --f: 16px;
+  --lh: calc(var(--u) * 3);
+  font-size: var(--f);
+  line-height: var(--lh);
+  padding: var(--u) calc(var(--u) * 1.5) calc(var(--u) - 1px);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.content th {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--fg-muted);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: calc(var(--u) - 2px);
+  white-space: nowrap;
+}
+
+.content tbody tr:last-child td {
+  border-bottom: none;
+  padding-bottom: var(--u);
+}
+
+/* Blockquotes are used in content as callouts, but rendered as plain
+   indented prose (UA default: 40px margin, no rule). */
+.content blockquote {
+  margin: 0;
+  padding: var(--u) calc(var(--u) * 2);
+  border-left: calc(var(--u) / 2) solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 4px 4px 0;
+}
+
+.content blockquote > * + * { margin-top: calc(var(--u) * 2); }
+
+.content hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: calc(var(--u) * 4) 0;
+}
+
+/* ---------------------------------------------------------------
+ * Layout: sidebar nav + content
+ * ------------------------------------------------------------- */
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.site-header {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.site-header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  /* The header is the grid's origin: everything below it inherits its
+     height as an offset. It measured 54px (16 + a 21px default-leading
+     logo + 16 + 1px border), so the entire document sat a permanent 6px
+     off the grid paper drawn behind it. Pinning the logo to 3U and
+     paying for the border out of the bottom padding makes the header
+     exactly 7U, and .site-main's 4U top padding then lands the first
+     line of every page on a grid line. */
+  padding: calc(var(--u) * 2) calc(var(--u) * 3) calc(var(--u) * 2 - 1px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.site-logo {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 16px;
+  line-height: calc(var(--u) * 3);
+  text-decoration: none;
+  color: var(--fg);
+}
+
+/* The drawer is a checkbox/label pair with no JS. The checkbox carried
+   the `hidden` attribute, which makes it unfocusable, so the menu could
+   not be opened from the keyboard at all. Take it off the visual layer
+   without taking it out of the focus order, and show a ring on the label
+   when the (invisible) input behind it is focused. */
+#nav-check {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.nav-toggle {
+  display: none;
+}
+
+
+.site-nav {
+  /* .site-nav is listed among the text roles above, so it inherited
+     text-box-trim: trim-both. On a container that is a nav LIST rather
+     than a run of prose, the trim lands on the first and last line boxes
+     in the whole subtree -- the first and last links rendered 6px
+     shorter than every link between them. The nav sets its own rhythm on
+     .site-nav li below, so it opts out of the trim here. */
+  text-box-trim: none;
+  text-box-edge: auto;
+  flex: 0 0 240px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-panel);
+  padding: calc(var(--u) * 3) calc(var(--u) * 2);
+}
+
+.site-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.site-nav .nav-section {
+  margin-top: calc(var(--u) * 2);
+}
+
+.site-nav .nav-section-title {
+  text-box-trim: none;
+  text-box-edge: auto;
+  line-height: calc(var(--u) * 3);
+  padding-top: var(--u);
+  font-weight: 700;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Nav rows are not body copy. The p/li role gave every nav <li> a 16px
+   body line PLUS ~13px of baseline-grid pad-out, so each link occupied
+   37px of off-grid height and the phone drawer opened 1502px tall --
+   almost two screens of navigation before any content. Pin a nav row to
+   exactly 4U: on the grid, and a large enough touch target. */
+.site-nav li {
+  /* Zeroing the pad-out is not enough on its own: the li still carries
+     text-box-trim from the body role, which crops the box to cap height
+     (11px) and made the links overlap. A nav row opts out of the text-
+     trim mechanism entirely and is simply 4U tall. */
+  text-box-trim: none;
+  text-box-edge: auto;
+  line-height: calc(var(--u) * 4);
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.site-nav a {
+  display: block;
+  line-height: calc(var(--u) * 4);
+  padding: 0;
+  color: var(--fg);
+  text-decoration: none;
+}
+
+.site-nav a:hover,
+.site-nav a[aria-current="page"] {
+  color: var(--accent);
+}
+
+.site-main {
+  flex: 1 1 auto;
+  padding: calc(var(--u) * 4) calc(var(--u) * 4);
+  min-width: 0;
+}
+
+.content {
+  max-width: 72ch;
+}
+
+.hero {
+  max-width: 60ch;
+}
+
+.hero .cta {
+  display: inline-block;
+  margin-top: calc(var(--u) * 3);
+  /* 3U line + 1U above and below = 5U tall, so the button does not knock
+     the homepage's flow off the grid. */
+  font-size: 16px;
+  line-height: calc(var(--u) * 3);
+  padding: var(--u) calc(var(--u) * 3);
+  background: var(--accent);
+  /* NOT a hardcoded #fff. --accent is a light blue in dark mode, where
+     white-on-accent measures 2.23:1 -- below WCAG AA for any text size,
+     on the homepage's primary call to action. Painting the button's
+     label in the page background colour tracks the theme and measures
+     5.84:1 light / 9.6:1 dark. */
+  color: var(--bg);
+  text-decoration: none;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+
+.section-list {
+  list-style: none;
+  margin: calc(var(--u) * 2) 0 0;
+  padding: 0;
+}
+
+.section-list li {
+  margin-top: calc(var(--u) * 1);
+}
+
+.site-footer {
+  border-top: 1px solid var(--border);
+  padding: calc(var(--u) * 3) calc(var(--u) * 4);
+  color: var(--fg-muted);
+}
+
+@media (max-width: 800px) {
+  .layout { flex-direction: column; }
+
+  .nav-toggle {
+    display: inline-block;
+    font-family: var(--font-mono);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    color: var(--fg);
+  }
+
+  .nav-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* The label sits in the header and the nav in .layout, so they are not
+     siblings; :has() on <body> is what lets one control the other from a
+     different subtree without any JavaScript. */
+  #nav-check:focus-visible + .nav-toggle {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .site-nav {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    display: none;
+  }
+
+  body:has(#nav-check:checked) .site-nav {
+    display: block;
+  }
+}

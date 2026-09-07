@@ -1,0 +1,16 @@
+{{- /*
+  Companion to render-link.html. Content files reference site assets with
+  root-relative markdown image paths like ![alt](/img/console/foo.png).
+  Goldmark emits those verbatim, so under baseURL https://websocketd.com/docs/
+  they resolved to /img/... and 404'd -- verified in headless Chrome, where
+  the dev-console page rendered two broken images (naturalWidth 0).
+
+  Same fix as render-link.html: relURL does NOT prepend baseURL's path
+  segment to an input that already starts with "/", so the leading slash is
+  stripped first. External and relative sources are passed through untouched.
+*/ -}}
+{{- $src := .Destination -}}
+{{- if strings.HasPrefix $src "/" -}}
+  {{- $src = strings.TrimPrefix "/" $src | relURL -}}
+{{- end -}}
+<img src="{{ $src | safeURL }}" alt="{{ .Text }}"{{ with .Title }} title="{{ . }}"{{ end }} loading="lazy">

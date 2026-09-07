@@ -1,333 +1,285 @@
-/* Colors:
-blue1 #2980b9
-blue2 #3498db
-orange 1 #e67e22
-orange 2 #d35400
-white 1 #ecf0f1
-white 2 #bdc3c7
-dark 1 #95a5a6
-dark 2 #7f8c8d
-*/
-.container {
-    width: 90%;
-    max-width: 1000px;
-    margin: auto;
+/*
+ * websocketd.com homepage -- layout only.
+ * ======================================================================
+ *
+ * READ THIS BEFORE ADDING A COLOUR OR A FONT-SIZE HERE.
+ *
+ * This file defines no colour, no font family, and no token block of
+ * its own. Type, palette and spacing all come from the docs site's own
+ * stylesheet, which index.html links ahead of this one:
+ *
+ *   /docs/fonts/fonts.css    self-hosted JetBrains Mono + IBM Plex Sans
+ *   /docs/css/blueprint.css  the token block, the 8px baseline grid, and
+ *                            the two text-box-trim padding formulas
+ *
+ * Both are served from the same GitHub Pages artifact as this page --
+ * .github/workflows/pages.yml copies website/ to the artifact root and
+ * docsite/public/ to /docs -- so the two surfaces share one source of
+ * truth for eleven colour tokens, two font files and one grid unit
+ * rather than keeping a second copy in sync by hand. Verify this page by
+ * serving that assembled tree, never website/ on its own and never a
+ * file:// URL; the /docs/* paths do not exist otherwise.
+ *
+ * THE TWO NEW TYPE ROLES. The homepage needs a display headline and a
+ * lede, which the docs site has no use for. It does NOT re-type the
+ * padding arithmetic for them. blueprint.css applies
+ *
+ *   padding-top: calc(var(--lh) - var(--cap) * var(--f))
+ *
+ * to h1 and p; overriding only --f and --lh on a more specific selector
+ * re-runs the docs' own formula with new inputs. Every rendered number
+ * below therefore still comes from blueprint.css. Grid check, using the
+ * rule in blueprint.css's own header comment, (asc + desc) * F <= n * U:
+ *
+ *   role                  font  F     (asc+desc)*F  chosen n*U
+ *   headline, >=700px     mono  48px  1.320*48=63.4  8U = 64  ok
+ *   headline, <700px      mono  32px  1.320*32=42.2  6U = 48  ok
+ *   lede                  sans  20px  1.300*20=26.0  4U = 32  ok
+ *
+ * CLASS NAMING. Everything the homepage lays out for itself is prefixed
+ * home-, because blueprint.css already owns .layout, .site-nav, .content,
+ * .hero, .cta, .section-list and .site-footer and a collision would style
+ * this page as a docs page. The three exceptions are deliberate reuse of
+ * shared chrome, not accidents: .site-header, .site-header-inner and
+ * .site-logo give the homepage byte-identical header furniture to every
+ * docs page, and .site-header-inner's 1200px max-width and 3U side
+ * padding are what .home-main below is aligned to. .role-small is
+ * blueprint's own named text role, used here as intended.
+ */
+
+/* ----------------------------------------------------------------
+ * Header
+ * -------------------------------------------------------------- */
+
+/* Three links, one row, at every width. No drawer: the docs site needs
+ * one because it carries 24 nav entries; three links fit on one 390px
+ * row in the 12px sans role with room to spare, and a toggle for three
+ * links is machinery for its own sake. */
+.home-nav {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 3);
 }
-body {
-    font-family: Lato, sans-serif;
-    margin-top: 100px;
-    padding: 0;
+
+.home-nav a {
+  color: var(--fg);
+  text-decoration: none;
+  white-space: nowrap;
 }
-h1 {
-    font-size: 40px;
-    font-weight: 300;
+
+.home-nav a:hover {
+  color: var(--accent);
+  text-decoration: underline;
 }
-@media only screen and (min-width: 1000px) {
-    h1 {
-        font-size: 70px;
-        font-weight: 200;
-    }
+
+/* ----------------------------------------------------------------
+ * Page shell
+ * -------------------------------------------------------------- */
+
+/* Same max-width and side padding as .site-header-inner, so the logo in
+ * the bar and the headline below it sit on one vertical line. */
+.home-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: calc(var(--u) * 6) calc(var(--u) * 3) calc(var(--u) * 8);
 }
-h2 {
-    font-size: 30px;
-    font-weight: 300;
+
+.home-section {
+  margin-top: calc(var(--u) * 8);
 }
-h3 {
-    font-size: 25px;
-    font-weight: 300;
+
+.home-section > * + * {
+  margin-top: calc(var(--u) * 2);
 }
-.placeholder {
-    background-color: rgba(0,0,0,0.1);
-    margin: auto;
+
+.home-section > h3 {
+  margin-top: calc(var(--u) * 3);
 }
-/* Ensure that #hash links are offset so navbar doesn't obscure them. */
-.xref {
-    display: block;
-    position: relative;
-    top: -100px;
+
+/* ----------------------------------------------------------------
+ * Hero
+ * -------------------------------------------------------------- */
+
+.home-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(var(--u) * 5);
+  align-items: start;
 }
-.cols-3 > div,
-.cols-4 > div {
-    margin: auto;
-    margin-top: 50px;
-    margin-bottom: 50px;
-    max-width: 400px;
+
+.home-hero-copy > * + * {
+  margin-top: calc(var(--u) * 3);
 }
-@media only screen and (min-width: 1000px) {
-    .cols-3,
-    .cols-4 {
-        margin: 0 -15px;
-        padding: 0;
-        text-align: center;
-    }
-    .cols-3::after,
-    .cols-4::after {
-        content: " ";
-        display: table;
-        clear: both;
-    }
-    .cols-3 > div,
-    .cols-4 > div {
-        max-width: none;
-        display: block;
-        position: relative;
-        min-height: 1px;
-        padding: 25px 15px;
-        float: left;
-        margin: 0;
-        box-sizing: border-box;
-        -webkit-box-sizing: border-box;
-        -moz-box-sizing: border-box;
-    }
-    .cols-3 > div {
-        width: 33.3333333%;
-    }
-    .cols-4 > div {
-        width: 25%;
-    }
+
+/* The two new type roles: --f and --lh only. See the header comment. */
+.home-hero h1 {
+  --f: 32px;
+  --lh: calc(var(--u) * 6);
 }
-.button-small,
-.button-large {
-    display: inline-block;
-    background-color: #e67e22;
-    color: white;
-    text-decoration: none;
+
+.home-lede {
+  --f: 20px;
+  --lh: calc(var(--u) * 4);
+  max-width: 60ch;
 }
-.button-small:hover,
-.button-large:hover {
-    background-color: #d35400;
+
+.home-note a {
+  text-decoration: none;
 }
-.button-small {
-    padding: 5px 10px;
-    font-size: 13px;
+
+.home-note a:hover {
+  text-decoration: underline;
 }
-.button-large {
-    padding: 10px 20px;
-    font-size: 24px;
+
+/* ----------------------------------------------------------------
+ * Buttons
+ * -------------------------------------------------------------- */
+
+.home-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--u) * 2);
 }
-.header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 99px;
-    border-bottom: 1px solid #bdc3c7;
-    background-color: rgba(255,255,255,0.95);
-    z-index: 9000;
-    margin: 0;
+
+/* 1U + a 3U line + 1U = 5U tall, with 1px taken off each side of the
+ * padding to pay for the border -- so the outlined secondary and the
+ * solid primary are the same height and neither knocks the flow off the
+ * grid. Same trick blueprint.css uses on pre and .site-header-inner. */
+.home-btn {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  line-height: calc(var(--u) * 3);
+  padding: calc(var(--u) - 1px) calc(var(--u) * 3 - 1px);
+  border: 1px solid;
+  border-radius: 4px;
+  text-decoration: none;
+  white-space: nowrap;
 }
-.header-logo {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    text-align: center;
-    height: 60px;
-    line-height: 55px;
-    margin: auto;
-    font-size: 50px;
-    font-weight: 200;
-    color: #95a5a6;
+
+/* The label is painted in the page background colour, not white:
+ * --accent is a light blue in dark mode, where white-on-accent falls
+ * below WCAG AA. blueprint.css's .cta makes the same choice for the same
+ * reason; this button cannot reuse .cta because .cta is scoped to the
+ * docs site's own .hero. */
+.home-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
 }
-.header-logo strong {
-    color: #7f8c8d;
-    font-weight: 300;
+
+.home-btn-primary:hover {
+  text-decoration: underline;
 }
-.header-links {
-    position: absolute;
-    top: 60px;
-    left: 0;
-    right: 0;
-    text-align: center;
-    padding: 0;
-    margin: auto;
+
+.home-btn-secondary {
+  background: var(--bg-panel);
+  border-color: var(--border);
+  color: var(--accent);
 }
-.header-links > li {
-    font-weight: 300;
-    font-size: 14px;
-    line-height: 38px;
-    padding: 0 8px;
-    display: inline-block;
-    margin: 0;
+
+.home-btn-secondary:hover {
+  border-color: var(--accent);
+  text-decoration: underline;
 }
-.header-links a {
-    text-decoration: none;
-    color: inherit;
+
+/* ----------------------------------------------------------------
+ * Media
+ * -------------------------------------------------------------- */
+
+.home-shot,
+.home-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
 }
-.header-links a:hover {
-    text-decoration: underline;
+
+.home-video-wrap {
+  max-width: 800px;
 }
-@media only screen and (min-width: 1000px) {
-    .header-logo {
-        height: 99px;
-        line-height: 90px;
-        margin: 0 0 0 30px;
-        font-size: 70px;
-        right: auto;
-    }
-    .header-links {
-        top: 0;
-        left: auto;
-        padding-right: 15px;
-    }
-    .header-links > li {
-        font-weight: 300;
-        font-size: 18px;
-        line-height: 95px;
-        padding: 0 15px;
-    }
+
+/* ----------------------------------------------------------------
+ * Column groups
+ * -------------------------------------------------------------- */
+
+.home-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(var(--u) * 4);
 }
-.section {
-    padding: 50px 20px;
-    text-align: center;
+
+.home-cols > div > * + * {
+  margin-top: calc(var(--u) * 2);
 }
-@media only screen and (min-width: 480px) {
-    .section {
-        padding: 50px;
-    }
+
+.home-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-.section-hero {
-    background-color: #3d566f;
-    background-image: url(bluebg.jpg);
-    color: #fff;
+
+.home-list li + li {
+  margin-top: var(--u);
 }
-.section-hero h1 {
-    margin-bottom: 50px;
+
+/* ----------------------------------------------------------------
+ * Footer
+ * -------------------------------------------------------------- */
+
+/* Not blueprint's .site-footer: that rule pads 3U/4U straight off the
+ * viewport edge, which would put the footer text on a different vertical
+ * line from the header and the hero. Same tokens, this page's measure. */
+.home-footer {
+  border-top: 1px solid var(--border);
+  color: var(--fg-muted);
 }
-.section-philosophy {
-    background-color: #ecf0f1;
-    color: #333;
+
+.home-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: calc(var(--u) * 3) calc(var(--u) * 3) calc(var(--u) * 5);
 }
-.section-philosophy blockquote {
-    font-size: 22px;
-    font-style: italic;
+
+.home-footer a {
+  color: var(--fg-muted);
 }
-@media only screen and (min-width: 480px) {
-    .section-philosophy blockquote {
-        font-size: 34px;
-    }
+
+.home-footer a:hover {
+  color: var(--accent);
 }
-.section-philosophy i {
-    margin-left: 10px;
-    margin-right: 10px;
-    color: #95a5a6;
+
+.home-footer p + p {
+  margin-top: 0;
 }
-.section-benefits {
-    padding-bottom: 60px;
+
+/* ----------------------------------------------------------------
+ * Breakpoints
+ *
+ * 700px: the headline steps up to its 48px/8U role.
+ * 900px: hero splits into copy + screenshot, and the three "How it
+ *        works" items become three columns. Below it everything is one
+ *        column, in source order -- headline, lede, code, both buttons,
+ *        the releases line, then the screenshot. The screenshot stays
+ *        last so a 1200px-wide image can never push the two buttons off
+ *        a phone's first screen.
+ * -------------------------------------------------------------- */
+
+@media (min-width: 700px) {
+  .home-hero h1 {
+    --f: 48px;
+    --lh: calc(var(--u) * 8);
+  }
 }
-.section-benefits h3 {
-    margin-bottom: 50px;
-}
-.section-summary {
-    background-color: #ecf0f1;
-    color: #333;
-}
-.section-install {
-    background-color: #3d566f;
-    background-image: url(bluebg.jpg);
-    color: #fff;
-}
-.section-tutorial {
-}
-.section-languages {
-    background-color: #ecf0f1;
-    color: #333;
-}
-.section-features {
-}
-.section-footer {
-    background-color: #7f8c8d;
-    color: #ccc;
-}
-.section-footer a {
-    color: #fff;
-}
-pre.code {
-    text-align: left;
-    max-width: 600px;
-    margin: auto;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-.tab-box {
-    text-align: left;
-    max-width: 620px;
-    margin: auto;
-}
-/* override prism syntax highlighter theme */
-pre[class*="language-"] {
-    border-radius: 0;
-    border: none;
-    background-color: #333;
-    padding: 10px;
-    font-size: 11px;
-}
-@media only screen and (min-width: 480px) {
-    pre[class*="language-"] {
-        font-size: 15px;
-    }
-}
-.tab-box {
-}
-.tab-box .tabs {
-    margin: 0;
-    padding: 0;
-    white-space: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-@media only screen and (min-width: 480px) {
-    .tab-box .tabs {
-        white-space: normal;
-        overflow-x: visible;
-    }
-}
-.tab-box .tabs > li {
-    display: inline-block;
-    cursor: pointer;
-    padding: 4px 6px;
-    background-color: #bdc3c7;
-    color: #333;
-    margin: 0;
-}
-.tab-active {
-    background-color: #7f8c8d !important;
-    color: #fff !important;
-}
-.tab-box .content {
-}
-.download {
-}
-.download-platform-icon {
-    font-size: 90px;
-    color: #ecf0f1;
-    display: block;
-    height: 110px;
-}
-.language-ticker {
-    display: inline-block;
-    position: relative;
-    top: -6px;
-    width: 170px;
-    white-space: nowrap;
-    font-size: 28px;
-    border-bottom: 1px solid #333;
-}
-@media only screen and (min-width: 480px) {
-    .language-ticker {
-        top: -10px;
-        width: 240px;
-        font-size: 50px;
-    }
-}
-.language-options > li {
-    display: inline-block;
-    color: #bdc3c7;
-    font-size: 12px;
-    padding: 3px 6px;
-}
-.icon-feature {
-    width: 100px;
-    height: 100px;
-    opacity: 0.3;
+
+@media (min-width: 900px) {
+  .home-hero {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: calc(var(--u) * 6);
+  }
+
+  .home-cols {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }

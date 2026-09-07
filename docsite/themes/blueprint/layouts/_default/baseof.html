@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ if .IsHome }}{{ .Site.Title }}{{ else }}{{ .Title }} · {{ .Site.Title }}{{ end }}</title>
+<meta name="description" content="{{ if .Description }}{{ .Description }}{{ else }}{{ .Site.Params.pitch }}{{ end }}">
+{{ partial "head.html" . }}
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="site-logo" href="{{ (strings.TrimPrefix "/" "/") | relURL }}">websocketd docs</a>
+    {{/* The checkbox lives next to its label (not down in .layout) so a
+         keyboard focus ring can be drawn on the label via the adjacent
+         sibling; blueprint.css reaches the nav from here with :has().
+         It is visually hidden in CSS rather than with the `hidden`
+         attribute, which would make it unfocusable and leave the mobile
+         menu impossible to open without a pointer. */}}
+    <input type="checkbox" id="nav-check">
+    <label class="nav-toggle" for="nav-check">Menu</label>
+  </div>
+</header>
+
+<div class="layout">
+  {{ partial "nav.html" . }}
+  <main class="site-main">
+    <div class="content">
+      {{ block "main" . }}{{ end }}
+    </div>
+  </main>
+</div>
+
+{{ partial "footer.html" . }}
+{{ partial "mermaid-init.html" . }}
+</body>
+</html>

@@ -24,7 +24,7 @@ Download
 
 If you're on a Mac, you can install `websocketd` using [Homebrew](http://brew.sh/). Just run `brew install websocketd`. For other operating systems, or if you don't want to use Homebrew, check out the link below.
 
-**[Download for Linux, macOS and Windows](https://github.com/joewalnes/websocketd/wiki/Download-and-install)**
+**[Download for Linux, macOS and Windows](https://websocketd.com/docs/start/install/)**
 
 
 Quickstart
@@ -99,20 +99,27 @@ from disk using a `file://` URL.
 More Features
 -------------
 
-*   Very simple install. Just [download](https://github.com/joewalnes/websocketd/wiki/Download-and-install) the single executable for Linux, Mac or Windows and run it. Minimal dependencies, no installers, no package managers, no external libraries. Suitable for development and production servers.
-*   Server side scripts can access details about the WebSocket HTTP request (e.g. remote host, query parameters, cookies, path, etc) via standard [CGI environment variables](https://github.com/joewalnes/websocketd/wiki/Environment-variables). Note that `SERVER_NAME` and `SERVER_PORT` mirror the request's `Host` header (virtual-host semantics, as in `net/http/cgi`), so a client that controls its `Host` header controls them too — don't make access decisions on them.
+*   Very simple install. Just [download](https://websocketd.com/docs/start/install/) the single executable for Linux, Mac or Windows and run it. Minimal dependencies, no installers, no package managers, no external libraries. Suitable for development and production servers.
+*   Server side scripts can access details about the WebSocket HTTP request (e.g. remote host, query parameters, cookies, path, etc) via standard [CGI environment variables](https://websocketd.com/docs/understanding/cgi-environment/). Note that `SERVER_NAME` and `SERVER_PORT` mirror the request's `Host` header (virtual-host semantics, as in `net/http/cgi`), so a client that controls its `Host` header controls them too. Do not make access decisions on them.
 *   As well as serving websocket daemons it also includes a static file server and classic CGI server for convenience.
-*   Can listen on a Unix domain socket (`--unixsocket`) instead of, or alongside, a TCP address — useful for exposing websocketd only to processes on the same host, e.g. behind an SSH-forwarded or reverse-proxied socket. `--socketmode` (e.g. `0700`) pins the socket's permissions instead of leaving them to the process umask.
+*   Can listen on a Unix domain socket (`--unixsocket`) instead of, or alongside, a TCP address. That exposes websocketd only to processes on the same host, e.g. behind an SSH-forwarded or reverse-proxied socket. `--socketmode` (e.g. `0700`) pins the socket's permissions instead of leaving them to the process umask.
 *   STDERR can optionally be forwarded to WebSocket clients (`--passstderr`), tagged alongside STDOUT as JSON so a client can tell the two apart.
-*   When a client disconnects, the command is shut down — and so is any child process it spawned: teardown signals the whole process group. Scripts that deliberately spawn survivors should start them in their own session (`setsid`).
+*   When a client disconnects, the command is shut down, and so is any child process it spawned. Teardown signals the whole process group. Scripts that deliberately spawn survivors should start them in their own session (`setsid`).
 *   Command line help available via `websocketd --help`.
-*   Includes [WebSocket developer console](https://github.com/joewalnes/websocketd/wiki/Developer-console) to make it easy to test your scripts before you've built a JavaScript frontend.
+*   Includes a built-in [WebSocket developer console](https://websocketd.com/docs/reference/dev-console/) (`--devconsole`) to test and debug your scripts before you've built a JavaScript frontend. Connect, send a frame, and read back what your script wrote to stdout, with no client code. A compact frame list sits beside a detail pane for the selected frame's opcode, size, and pretty/raw/hex payload views, and it works in light or dark.
+
+    <p align="center">
+      <img src="website/img/console/console-light.png" alt="websocketd dev console, light theme, split inspector with a frame selected" width="420">
+      <img src="website/img/console/console-dark.png" alt="websocketd dev console, dark theme, split inspector with a frame selected" width="420">
+    </p>
+
+    [Watch a short demo](website/img/console/console-demo.mp4) of connect → send → receive.
 *   [Examples in many programming languages](https://github.com/joewalnes/websocketd/tree/main/examples) are available to help you getting started.
 
-User Manual
------------
+Documentation
+-------------
 
-**[More documentation in the user manual](https://github.com/joewalnes/websocketd/wiki)**
+**[More documentation](https://websocketd.com/docs/)**
 
 Example Projects
 ----------------

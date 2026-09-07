@@ -1,0 +1,24 @@
+{{ define "main" }}
+<h1>{{ .Title }}</h1>
+{{ .Content }}
+{{ $pages := .Pages }}
+{{ if $pages }}
+{{/*
+  Ordered by weight, not title: every page in this site carries an
+  explicit weight placing it in reading order within its section, and
+  sorting alphabetically threw that away (a section index opened on
+  "Design decisions" and closed on "The process model", which is the
+  reverse of the order the pages are written to be read in).
+
+  The one-line entry comes from .Description, the same front-matter
+  field the page's meta description uses. It used to read
+  .Params.summary, which no page sets, so every section index rendered
+  as a bare list of titles with no descriptions at all.
+*/}}
+<ul class="section-list">
+  {{ range $pages.ByWeight }}
+  <li><a href="{{ .RelPermalink }}">{{ .Title }}</a>{{ with .Description }} — {{ . }}{{ end }}</li>
+  {{ end }}
+</ul>
+{{ end }}
+{{ end }}

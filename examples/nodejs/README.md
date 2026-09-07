@@ -2,7 +2,7 @@
 
 ##### 1. Download
 
-[Install](https://github.com/joewalnes/websocketd/wiki/Download-and-install) websocketd and add it to your `PATH`.
+[Install](https://websocketd.com/docs/start/install/) websocketd and add it to your `PATH`.
 
 ##### 2. Start a server: getter
 

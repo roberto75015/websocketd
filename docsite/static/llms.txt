@@ -1,0 +1,83 @@
+# websocketd
+
+> websocketd wraps an existing command line program and serves it over
+> WebSocket. Any program that reads standard input and writes standard
+> output becomes a WebSocket server, with no networking code of its own.
+> One process is started per connection, so connections share no state
+> and there is no built-in broadcast.
+
+The site is organised on the four Diataxis modes. Pick the section by
+what you need right now: to be taught (start), to get a job done
+(how-to), to look up a fact (reference), or to understand why
+(understanding).
+
+For every page concatenated into one document, see /llms-full.txt,
+generated at build time from the same content this index describes.
+
+## Start — learning
+
+- /start/ — install, then one lesson that ends with a browser talking to a script
+- /start/install/ — get the binary on your PATH, or build it with go build
+- /start/tutorial/ — wrap a script, drive it from the dev console, serve your own page
+
+## How-to — doing
+
+- /how-to/ — the three groups below
+
+### Language fixes: a script that streams in a terminal but not under websocketd
+
+- /how-to/languages/ — group index
+- /how-to/languages/python/ — python3 -u, or flush after each print
+- /how-to/languages/ruby/ — STDOUT.sync = true
+- /how-to/languages/nodejs/ — read stdin with readline; output needs no flush
+- /how-to/languages/php/ — flush(), ob_flush(), and the <? short-tag trap
+- /how-to/languages/c/ — setbuf(stdout, NULL), setvbuf, or fflush
+- /how-to/languages/windows-scripts/ — name the interpreter; no shebangs, no signals
+
+### Deployment: running it somewhere
+
+- /how-to/deploy/ — group index
+- /how-to/deploy/nginx/ — the two headers nginx drops, and the idle timeout
+- /how-to/deploy/apache/ — mod_proxy_wstunnel
+- /how-to/deploy/haproxy/ — HTTP-mode backend carrying the upgrade
+- /how-to/deploy/systemd/ — a unit that starts at boot and restarts on failure
+- /how-to/deploy/docker/ — a container image; no pty, and PID 1 signal handling
+- /how-to/deploy/kubernetes/ — Deployment, Service, WebSocket-aware Ingress
+- /how-to/deploy/tls/ — wss:// with --ssl, mutual TLS with --sslca, or TLS at a proxy
+- /how-to/deploy/share-a-port/ — one public port, two servers
+- /how-to/deploy/public-internet/ — checklist before exposing it beyond localhost
+
+### Patterns: problem shapes
+
+- /how-to/patterns/ — group index
+- /how-to/patterns/share-state/ — message bus, shared file, or a long-lived backend
+- /how-to/patterns/add-auth/ — authenticate at a proxy, or check a token in the script
+- /how-to/patterns/run-once/ — a single instance, or a program that stays running
+- /how-to/patterns/pass-arguments/ — query string versus --passenv, and why they differ
+- /how-to/patterns/debug-a-script/ — drive an endpoint with --devconsole
+
+## Reference — looking up
+
+- /reference/ — section index, and the flag-ordering rule that applies to every flag
+- /reference/cli-flags/ — every flag and default, generated from the live flag set
+- /reference/environment-variables/ — every variable set for a spawned process, and which the client controls
+- /reference/exit-codes/ — every exit code, its trigger, and which stream carries the message
+- /reference/dev-console/ — what --devconsole serves, and its response contract
+- /reference/platform-support/ — released platforms, and what differs on Windows
+- /reference/examples/ — the repository's examples/ directory, per language
+
+## Understanding — why
+
+- /understanding/ — section index
+- /understanding/process-model/ — one process per connection, and what it rules out
+- /understanding/message-framing/ — the newline boundary, and what --binary changes
+- /understanding/output-buffering/ — why runtimes withhold output when stdout is a pipe
+- /understanding/process-lifecycle/ — lazy start, and the teardown ladder
+- /understanding/cgi-environment/ — request to environment, and the trust boundaries
+- /understanding/security-model/ — origin policy, TLS, and why there is no built-in auth
+- /understanding/design-decisions/ — no broadcast, no pty, no auth, and what was reverted
+
+## Other
+
+- /faq/ — the ten most-asked questions, each linking to the page that answers it
+- /changelog/ — rendered from the repository's CHANGES file
