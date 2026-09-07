@@ -26,6 +26,12 @@ Breaking changes — read before upgrading:
 
 Everything else:
 
+* The examples/c# and examples/f# directories are now examples/csharp and
+  examples/fsharp. A "#" starts the fragment in a URL, so any link to a
+  file inside them truncated at the directory name and never reached the
+  file. If you had a bookmark or a clone-relative path to either, update
+  it; the contents are unchanged.
+
 * Fix: --redirport threw away the path and query of every request it
   redirected. The Location header was built by appending a literal "/" to
   the canonical scheme, host and port, so http://example.com/docs/page.html?q=1
@@ -241,7 +247,7 @@ Everything else:
     wrapped program's whole process group.
 
 * Fix: two errors in the examples' README files. Five of them
-  (examples/c#, examples/f#, examples/java, examples/lua,
+  (examples/csharp, examples/fsharp, examples/java, examples/lua,
   examples/nodejs) linked their install step to
   docs.websocketd.com/start/install/, a subdomain that was planned but
   never registered -- the site is served at websocketd.com/docs -- so

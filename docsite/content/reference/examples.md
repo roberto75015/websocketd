@@ -84,8 +84,8 @@ lines](/reference/platform-support/).
 | `powershell` | `greeter.ps1`, `count.ps1`, `dump-env.ps1`, each with a `.cmd` launcher | `websocketd --port=8080 --devconsole greeter.cmd` |
 | `windows-jscript` | `greeter.js`, `count.js`, `dump-env.js`, run by Windows Script Host, each with a `.cmd` launcher | `websocketd --port=8080 --devconsole greeter.cmd` |
 | `windows-vbscript` | `greeter.vbs`, `count.vbs`, `dump-env.vbs`, run by Windows Script Host, each with a `.cmd` launcher | `websocketd --port=8080 --devconsole greeter.cmd` |
-| `c#` | `Echo` and `Count` Visual Studio projects, `Examples.sln`, `run_echo.cmd`, `run_count.cmd` | Build `Examples.sln`, then run `run_echo.cmd` |
-| `f#` | `Echo` and `Count` Visual Studio projects, `Examples.sln`, `run_echo.cmd`, `run_count.cmd` | Build `Examples.sln`, then run `run_echo.cmd` |
+| `csharp` | `Echo` and `Count` Visual Studio projects, `Examples.sln`, `run_echo.cmd`, `run_count.cmd` | Build `Examples.sln`, then run `run_echo.cmd` |
+| `fsharp` | `Echo` and `Count` Visual Studio projects, `Examples.sln`, `run_echo.cmd`, `run_count.cmd` | Build `Examples.sln`, then run `run_echo.cmd` |
 
 The PowerShell `.ps1` files also carry a `#!/usr/bin/env pwsh` shebang,
 so on Linux and macOS they can be run as `websocketd --port=8080
