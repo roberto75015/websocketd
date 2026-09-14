@@ -7,6 +7,7 @@ Tests for child process lifecycle, stdio piping, signal handling, and resource l
 ## PROC-001: Each Connection Gets Its Own Process
 
 **Priority**: P0
+**Automated**: `TestPROC001_ProcessPerConnection` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create a script that prints its PID:
 ```bash
 #!/bin/bash
@@ -26,6 +27,7 @@ while IFS= read -r line; do echo "$line"; done
 ## PROC-002: STDIN from WebSocket to Process
 
 **Priority**: P0
+**Automated**: `TestCORE001_BasicConnection` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd running with `cat`
 
 **Steps**:
@@ -40,6 +42,7 @@ while IFS= read -r line; do echo "$line"; done
 ## PROC-003: STDOUT from Process to WebSocket
 
 **Priority**: P0
+**Automated**: `TestPROC002_StdoutToWebSocket` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create a script that generates output on startup:
 ```bash
 #!/bin/bash
@@ -59,6 +62,7 @@ while IFS= read -r line; do echo "$line"; done
 ## PROC-004: STDERR Goes to Logs, Not WebSocket
 
 **Priority**: P0
+**Automated**: `TestPROC003_StderrToLogs` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create a script that writes to both stdout and stderr:
 ```bash
 #!/bin/bash
@@ -128,6 +132,7 @@ while true; do sleep 0.1; done
 ## PROC-008: --maxforks Limit Enforced
 
 **Priority**: P0
+**Automated**: `TestPROC004_MaxforksLimit` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create a long-running script:
 ```bash
 #!/bin/bash
@@ -150,6 +155,7 @@ while true; do sleep 1; done
 ## PROC-009: --maxforks Recovery After Disconnect
 
 **Priority**: P1
+**Automated**: `TestPROC005_MaxforksRecovery` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Same as PROC-008
 
 **Steps**:
@@ -166,6 +172,7 @@ while true; do sleep 1; done
 ## PROC-010: Process Exit Code Non-Zero
 
 **Priority**: P1
+**Automated**: `TestPROC006_ProcessExitNonZero` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create a script:
 ```bash
 #!/bin/bash
@@ -214,6 +221,7 @@ int main() { *(int*)0 = 0; return 0; }
 ## PROC-013: Script Directory Mode
 
 **Priority**: P0
+**Automated**: `TestPROC007_ScriptDirectoryMode` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create directory:
 ```
 scripts/
@@ -234,6 +242,7 @@ scripts/
 ## PROC-014: Script Directory with PATH_INFO
 
 **Priority**: P1
+**Automated**: `TestParsePathWithScriptDir`, `TestParsePathExplicitScript` (libwebsocketd). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Script directory mode
 
 **Steps**:
@@ -249,6 +258,7 @@ scripts/
 ## PROC-015: Script with Command Arguments
 
 **Priority**: P1
+**Automated**: `TestPROC008_CommandArguments` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Start websocketd: `websocketd --port=8080 /bin/echo "hello from args"`
@@ -286,6 +296,7 @@ sys.stdout.flush()
 ## PROC-017: Long-Running Process
 
 **Priority**: P1
+**Automated**: `TestPROC012_InfiniteOutputProcess` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Script that runs indefinitely:
 ```bash
 #!/bin/bash
@@ -305,6 +316,7 @@ while true; do echo "alive"; sleep 10; done
 ## PROC-018: Rapid Process Exit Before Any Client Input
 
 **Priority**: P1
+**Automated**: `TestPROC009_RapidProcessExit`, `TestPROC010_ProcessExitNoOutput` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Script that exits immediately:
 ```bash
 #!/bin/bash
@@ -336,6 +348,7 @@ exit 0
 ## PROC-020: Orphaned Child Processes
 
 **Priority**: P1
+**Automated**: `TestPROC013_SessionTeardownKillsProcessGroup` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Create a script that spawns background processes:
 ```bash
 #!/bin/bash
@@ -372,6 +385,7 @@ while IFS= read -r line; do echo "$line"; done
 ## PROC-022: --passstderr Forwards STDERR to Clients
 
 **Priority**: P2
+**Automated**: `TestIssue459_PassStderrTagsBothStreams`, `TestIssue459_NoPassStderrByDefault`, `TestIssue459_BinaryAndPassStderrRejected` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Start websocketd: `websocketd --port=8080 --passstderr ./script-writing-to-both.sh`

@@ -1,0 +1,4 @@
+name = "blueprint"
+license = "BSD-3-Clause"
+description = "Custom 'engineering blueprint' theme for the websocketd docs site: grid-paper background, baseline-grid-corrected typography (JetBrains Mono headings, IBM Plex Sans body), light/dark mode, and a Mermaid diagram shortcode."
+min_version = "0.100.0"

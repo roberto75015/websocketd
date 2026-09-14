@@ -1,0 +1,69 @@
+baseURL = "https://websocketd.com/docs/"
+locale = "en-us"
+title = "websocketd docs"
+theme = "blueprint"
+
+# Section weights drive section-index ordering (layouts/_default/list.html
+# sorts .Pages.ByWeight) and, via layouts/index.llmsfull.txt, the order
+# pages appear in llms-full.txt. Keep both in sync with docsite/PLAN.md's
+# site map if the map changes.
+[params]
+  pitch = "websocketd turns any program that reads stdin and writes stdout into a WebSocket server."
+  githubRepo = "https://github.com/joewalnes/websocketd"
+
+# Custom output format for llms-full.txt: every content page concatenated,
+# in site-map order, generated at build time from the same content
+# collection that renders the HTML (see docs-archive/MANUAL_TOOLING.md,
+# "LLM-readable output"). llms.txt itself is hand-curated and lives as static
+# file at docsite/static/llms.txt, copied verbatim by Hugo.
+[outputFormats.LLMSFULL]
+  mediaType = "text/plain"
+  baseName = "llms-full"
+  isPlainText = true
+  notAlternative = true
+
+[outputs]
+  home = ["HTML", "LLMSFULL"]
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = false
+    [markup.goldmark.extensions]
+      # Off: the typographer extension HTML-entity-encodes curly quotes
+      # (') rather than emitting the unicode character, and .Plain
+      # (used by llms-full.txt) doesn't decode entities back out — so
+      # "isn't" was showing up in the plain-text output as literal
+      # "isn&rsquo;t". Plain straight quotes round-trip cleanly through
+      # both HTML and plain text, which matters more here than curly
+      # quotes in the rendered page.
+      [markup.goldmark.extensions.typographer]
+        disable = true
+
+[markup.highlight]
+  noClasses = false
+
+[menu]
+
+# Explicit mounts. Adding any [[module.mounts]] disables Hugo's implicit
+# defaults, so the standard ones are restated here alongside the one
+# custom mount: CHANGES lives at the repo root (one level above this
+# Hugo project), and docs-archive/MANUAL_TOOLING.md called for the changelog
+# page to be single-sourced from it rather than duplicated. Mounting it as
+# an asset lets layouts/changelog/list.html read it at build time via
+# resources.Get, so the page can never drift from the real changelog.
+[[module.mounts]]
+  source = "content"
+  target = "content"
+[[module.mounts]]
+  source = "static"
+  target = "static"
+[[module.mounts]]
+  source = "layouts"
+  target = "layouts"
+[[module.mounts]]
+  source = "assets"
+  target = "assets"
+[[module.mounts]]
+  source = "../CHANGES"
+  target = "assets/CHANGES.txt"

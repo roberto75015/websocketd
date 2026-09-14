@@ -9,6 +9,7 @@ Tests for cross-compilation, packaging, version tagging, and release artifacts.
 ### BUILD-001: Default Build
 
 **Priority**: P0
+**Automated**: `.github/workflows/test.yml` job "test" (5-platform matrix). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Go toolchain installed (1.15+)
 
 **Steps**:
@@ -34,6 +35,7 @@ Tests for cross-compilation, packaging, version tagging, and release artifacts.
 ### BUILD-003: Run Tests
 
 **Priority**: P0
+**Automated**: `.github/workflows/test.yml` job "test" (5-platform matrix). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `go test ./...`
@@ -45,6 +47,7 @@ Tests for cross-compilation, packaging, version tagging, and release artifacts.
 ### BUILD-004: Race Detector
 
 **Priority**: P1
+**Automated**: `.github/workflows/test.yml` job "test" runs go test -race. Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `go test -race ./...`
@@ -56,6 +59,7 @@ Tests for cross-compilation, packaging, version tagging, and release artifacts.
 ### BUILD-005: Go Vet
 
 **Priority**: P1
+**Automated**: `.github/workflows/test.yml` job "lint" runs go vet. Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `go vet ./...`
@@ -67,6 +71,7 @@ Tests for cross-compilation, packaging, version tagging, and release artifacts.
 ### BUILD-006: Static Analysis
 
 **Priority**: P2
+**Automated**: `.github/workflows/test.yml` job "lint" runs staticcheck and gosec. Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Install staticcheck: `go install honnef.co/go/tools/cmd/staticcheck@latest`
@@ -284,21 +289,30 @@ Tests for cross-compilation, packaging, version tagging, and release artifacts.
 
 ## Go Version Compatibility
 
-### BUILD-050: Build with Go 1.15
+### BUILD-050: Build with the go.mod Minimum
 
 **Priority**: P2
+**Automated**: `.github/workflows/test.yml` job "test", the `go: '1.21'` matrix entry. Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
-1. Install Go 1.15
+1. Install the toolchain named by the `go` directive in `go.mod` (1.21 as of this writing)
 2. `go build`
 
-**Expected Result**: Compiles successfully. This is the version used in v0.4.1 release.
+**Expected Result**: Compiles successfully.
+
+**Notes**: Rewritten 2026-09-07. This case used to name Go 1.15 and call it "the
+version used in v0.4.1". `go.mod` was raised to 1.21, so a 1.15 toolchain now
+refuses outright — see `qa/integration/known_bugs_test.go`, "TestBUG005 — fixed:
+go.mod updated from Go 1.15 to Go 1.21". Note also that only the Linux runner
+uses the go.mod minimum: recent macOS dyld rejects binaries built by pre-1.22
+toolchains, so the minimum is not validated on macOS.
 
 ---
 
 ### BUILD-051: Build with Latest Go
 
 **Priority**: P0
+**Automated**: `.github/workflows/test.yml` job "test" pins go-version stable. Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Install latest Go release

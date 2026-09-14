@@ -4,14 +4,16 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/joewalnes/websocketd/internal/cliflags"
 )
 
 // TestDefaultMaxForksIsFinite guards the security intent: the fork limit must
 // default to a finite value so an unconfigured, network-facing deployment
 // cannot be fork-bombed. A revert to 0 (unlimited) should fail this test.
 func TestDefaultMaxForksIsFinite(t *testing.T) {
-	if defaultMaxForks <= 0 {
-		t.Fatalf("defaultMaxForks = %d; must be finite (> 0) so the default is not a fork-bomb", defaultMaxForks)
+	if cliflags.DefaultMaxForks <= 0 {
+		t.Fatalf("cliflags.DefaultMaxForks = %d; must be finite (> 0) so the default is not a fork-bomb", cliflags.DefaultMaxForks)
 	}
 }
 
@@ -170,9 +172,9 @@ func TestValidateRawBinary(t *testing.T) {
 // operator error most likely to remove a DoS protection (issue #472).
 func TestValidateMaxFrameSize(t *testing.T) {
 	tests := []struct {
-		name          string
-		maxFrameSize  int64
-		wantErr       bool
+		name         string
+		maxFrameSize int64
+		wantErr      bool
 	}{
 		{"zero means unlimited", 0, false},
 		{"positive limit", 1 << 20, false},
@@ -195,21 +197,28 @@ func TestValidateSSL(t *testing.T) {
 		ssl     bool
 		cert    string
 		key     string
+		caFile  string
 		wantErr bool
 	}{
-		{"no ssl, no certs", false, "", "", false},
-		{"ssl with both certs", true, "cert.pem", "key.pem", false},
-		{"ssl missing cert", true, "", "key.pem", true},
-		{"ssl missing key", true, "cert.pem", "", true},
-		{"ssl missing both", true, "", "", true},
-		{"certs without ssl", false, "cert.pem", "key.pem", true},
-		{"cert without ssl", false, "cert.pem", "", true},
+		{"no ssl, no certs", false, "", "", "", false},
+		{"ssl with both certs", true, "cert.pem", "key.pem", "", false},
+		{"ssl missing cert", true, "", "key.pem", "", true},
+		{"ssl missing key", true, "cert.pem", "", "", true},
+		{"ssl missing both", true, "", "", "", true},
+		{"certs without ssl", false, "cert.pem", "key.pem", "", true},
+		{"cert without ssl", false, "cert.pem", "", "", true},
+		// issue #477: --sslca without --ssl used to start a plain HTTP
+		// server that neither encrypted the connection nor verified any
+		// client certificate, despite the operator asking for mutual TLS.
+		{"sslca without ssl", false, "", "", "ca.pem", true},
+		{"sslca without ssl or certs either", false, "", "", "ca.pem", true},
+		{"mutual tls: ssl with cert, key, and ca", true, "cert.pem", "key.pem", "ca.pem", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateSSL(tt.ssl, tt.cert, tt.key)
+			err := validateSSL(tt.ssl, tt.cert, tt.key, tt.caFile)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("validateSSL(%v, %q, %q) error = %v, wantErr %v", tt.ssl, tt.cert, tt.key, err, tt.wantErr)
+				t.Errorf("validateSSL(%v, %q, %q, %q) error = %v, wantErr %v", tt.ssl, tt.cert, tt.key, tt.caFile, err, tt.wantErr)
 			}
 		})
 	}
@@ -386,11 +395,11 @@ func TestParseSocketMode(t *testing.T) {
 		{"754", 0o754, false},
 		{"0007", 0o007, false},
 		{"777", 0o777, false},
-		{"0", 0, true},     // would make the socket unusable
-		{"0000", 0, true},  // ditto, zero-padded
-		{"0999", 0, true},  // 9 is not an octal digit
+		{"0", 0, true},    // would make the socket unusable
+		{"0000", 0, true}, // ditto, zero-padded
+		{"0999", 0, true}, // 9 is not an octal digit
 		{"abc", 0, true},
-		{"1000", 0, true},  // setuid/sticky bits are not permission bits
+		{"1000", 0, true}, // setuid/sticky bits are not permission bits
 		{"1777", 0, true},
 	}
 	for _, tt := range tests {

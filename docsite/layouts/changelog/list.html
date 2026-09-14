@@ -1,0 +1,9 @@
+{{ define "main" }}
+<h1>{{ .Title }}</h1>
+{{ .Content }}
+{{ with resources.Get "CHANGES.txt" }}
+<pre class="role-code">{{ .Content }}</pre>
+{{ else }}
+<p><em>CHANGES could not be loaded for this build.</em></p>
+{{ end }}
+{{ end }}

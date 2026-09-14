@@ -1,0 +1,33 @@
+{{- /*
+  Wraps every markdown table in a horizontally scrollable container.
+  Without it a wide reference table (reference/exit-codes, guide/cgi-
+  environment) either forced the whole page to scroll sideways or was
+  crushed into unreadable one-word-per-line columns at a phone width --
+  verified in headless Chrome at 390px. The wrapper keeps the overflow
+  local to the table so the page itself never scrolls horizontally.
+
+  Markup mirrors Hugo's built-in table renderer; only the wrapper and the
+  class are added.
+*/ -}}
+<div class="table-wrap">
+<table>
+  <thead>
+    {{- range .THead }}
+    <tr>
+      {{- range . }}
+      <th{{ with .Alignment }} style="text-align: {{ . }}"{{ end }}>{{ .Text }}</th>
+      {{- end }}
+    </tr>
+    {{- end }}
+  </thead>
+  <tbody>
+    {{- range .TBody }}
+    <tr>
+      {{- range . }}
+      <td{{ with .Alignment }} style="text-align: {{ . }}"{{ end }}>{{ .Text }}</td>
+      {{- end }}
+    </tr>
+    {{- end }}
+  </tbody>
+</table>
+</div>

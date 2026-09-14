@@ -121,7 +121,7 @@ func TestStderrLongLineKeepsProcessAlive_PassStderr(t *testing.T) {
 			}
 			stderrBytes += len(envelope.Data)
 		case <-deadline:
-				t.Fatalf("MARKER never arrived (child wedged on stderr write?); %d stderr bytes relayed", stderrBytes)
+			t.Fatalf("MARKER never arrived (child wedged on stderr write?); %d stderr bytes relayed", stderrBytes)
 		}
 	}
 
@@ -221,9 +221,9 @@ func TestTerminateUnblocksParkedReader(t *testing.T) {
 }
 
 // TestTerminateUnblocksParkedReader_PassStderr is the --passstderr mirror of
-// TestTerminateUnblocksParkedReader: readStdoutTagged and readStderrTagged
-// must each observe Terminate's done signal and exit, the same as the plain
-// text/binary readers.
+// TestTerminateUnblocksParkedReader: relayStdout and relayStderr (in their
+// --passstderr, tagged mode) must each observe Terminate's done signal and
+// exit, the same as the plain text/binary readers.
 func TestTerminateUnblocksParkedReader_PassStderr(t *testing.T) {
 	before := runtime.NumGoroutine()
 

@@ -84,6 +84,7 @@ Tests for WebSocket protocol versions, HTTP versions, and browser compatibility.
 ### PROTO-007: Large WebSocket Frames
 
 **Priority**: P1
+**Automated**: `TestWebSocketReadLimit` (libwebsocketd). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Send a single WebSocket frame of 64KB
@@ -268,6 +269,7 @@ Tests for WebSocket protocol versions, HTTP versions, and browser compatibility.
 ### BROWSER-009: Browser - Dev Console UI
 
 **Priority**: P1
+**Automated**: `TestConsoleSendAndReceiveEcho`, `TestConsoleFrameSelectionShowsDetail`, `TestConsoleCountersTrackSentReceived`, `TestConsoleClearEmptiesTranscript` (qa/browser). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd with --devconsole
 
 **Steps**:
@@ -285,6 +287,7 @@ Tests for WebSocket protocol versions, HTTP versions, and browser compatibility.
 ### BROWSER-010: Browser - Tab Character Display
 
 **Priority**: P2
+**Automated**: `TestConsoleHostileFramesNeverRenderAsHTML` (qa/browser). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Have a script output text containing tab characters
@@ -333,6 +336,7 @@ Tests for WebSocket protocol versions, HTTP versions, and browser compatibility.
 ### CLIENT-003: Go gorilla/websocket Client
 
 **Priority**: P1
+**Automated**: the whole suite dials with gorilla/websocket (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Write a Go client using gorilla/websocket

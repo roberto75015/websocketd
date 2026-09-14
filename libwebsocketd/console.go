@@ -5,353 +5,106 @@
 
 package libwebsocketd
 
-import "strings"
-
-// Although this isn't particularly elegant, it's the simplest
-// way to embed the console content into the binary.
-
-// Note that the console is served by a single HTML file containing
-// all CSS and JS inline.
-// We can get by without jQuery or Bootstrap for this one ;).
-
-const (
-	defaultConsoleContent = `
-
-<!--
-websocketd console
-
-Full documentation at https://websocketd.com/
-
-{{license}}
--->
-
-<!DOCTYPE html>
-<meta charset="utf8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>websocketd console</title>
-
-<style>
-	.template {
-		display: none !important;
-	}
-	body, input {
-		font-family: dejavu sans mono, Menlo, Monaco, Consolas, Lucida Console, tahoma, arial;
-		font-size: 13px;
-	}
-	body {
-		margin: 0;
-	}
-	.header {
-		background-color: #efefef;
-		padding: 2px;
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 32px;
-	}
-	.header button {
-		font-size: 19px;
-		width: 30px;
-		margin: 2px 2px 0 2px;
-		padding: 0;
-		float: left;
-	}
-	.header .url-holder {
-		position: absolute;
-		left: 38px;
-		top: 4px;
-		right: 14px;
-		bottom: 9px;
-	}
-	.header .url {
-		border: 1px solid #999;
-		background-color: #fff;
-		width: 100%;
-		height: 100%;
-		border-radius: 2px;
-		padding-left: 4px;
-		padding-right: 4px;
-	}
-	.messages {
-		overflow-y: scroll;
-		position: absolute;
-		left: 0;
-		right: 0;
-		top: 36px;
-		bottom: 0;
-		border-top: 1px solid #ccc;
-	}
-	.message {
-		border-bottom: 1px solid #bbb;
-		padding: 2px;
-	}
-	.message-type {
-		font-weight: bold;
-		position: absolute;
-		width: 80px;
-		display: block;
-	}
-	.message-data {
-		margin-left: 90px;
-		display: block;
-		word-wrap: break-word;
-		white-space: pre;
-	}
-	.type-input,
-	.type-send {
-		background-color: #ffe;
-	}
-	.type-onmessage {
-		background-color: #eef;
-	}
-	.type-open,
-	.type-onopen {
-		background-color: #efe;
-	}
-	.type-close,
-	.type-onclose {
-		background-color: #fee;
-	}
-	.type-onerror,
-	.type-exception {
-		background-color: #333;
-		color: #f99;
-	}
-	.type-send .message-type,
-	.type-onmessage .message-type {
-		opacity: 0.2;
-	}
-	.type-input .message-type {
-		color: #090;
-	}
-	.send-input {
-		width: 100%;
-		border: 0;
-		padding: 0;
-		margin: -1px;
-		background-color: inherit;
-	}
-	.send-input:focus {
-		outline: none;
-	}
-</style>
-
-<header class="header">
-	<button class="disconnect" title="Disconnect" style="display:none">&times;</button>
-	<button class="connect" title="Connect" style="display:none">&#x2714;</button>
-	<div class="url-holder">
-		<input class="url" type="text" value="{{addr}}" spellcheck="false">
-	</div>
-</header>
-
-<section class="messages">
-	<div class="message template">
-		<span class="message-type"></span>
-		<span class="message-data"></span>
-	</div>
-	<div class="message type-input">
-		<span class="message-type">send &#xbb;</span>
-		<span class="message-data"><input type="text" class="send-input" spellcheck="false"></span>
-	</div>
-</section>
-
-<script>
-
-	let ws = null;
-
-	function ready() {
-		select('.connect').style.display = 'block';
-		select('.disconnect').style.display = 'none';
-
-		select('.connect').addEventListener('click', () => {
-			connect(select('.url').value);
-		});
-		select('.disconnect').addEventListener('click', () => {
-			disconnect();
-		});
-
-		select('.url').focus();
-		select('.url').addEventListener('keydown', (ev) => {
-			const code = ev.which || ev.keyCode;
-			// Enter key pressed
-			if (code == 13) {
-				updatePageUrl();
-				connect(select('.url').value);
-			}
-		});
-		select('.url').addEventListener('change', updatePageUrl);
-
-		select('.send-input').addEventListener('keydown', (ev) => {
-			const code = ev.which || ev.keyCode;
-			// Enter key pressed
-			if (code == 13) {
-				const msg = select('.send-input').value;
-				select('.send-input').value = '';
-				send(msg);
-			}
-			// Up key pressed
-			if (code == 38) {
-				moveThroughSendHistory(1);
-			}
-			// Down key pressed
-			if (code == 40) {
-				moveThroughSendHistory(-1);
-			}
-		});
-		window.addEventListener('popstate', updateWebSocketUrl);
-		updateWebSocketUrl();
-	}
-
-	function updatePageUrl() {
-		const match = select('.url').value.match(new RegExp('^(ws)(s)?://([^/]*)(/.*)$'));
-		if (match) {
-			const pageUrlSuffix = match[4];
-			if (history.state != pageUrlSuffix) {
-				history.pushState(pageUrlSuffix, pageUrlSuffix, pageUrlSuffix);
-			}
-		}
-	}
-
-	function updateWebSocketUrl() {
-		const match = location.href.match(new RegExp('^(http)(s)?://([^/]*)(/.*)$'));
-		if (match) {
-			const wsUrl = 'ws' + (match[2] || '') + '://' + match[3] + match[4];
-			select('.url').value = wsUrl;
-		}
-	}
-
-	function appendMessage(type, data) {
-		const template = select('.message.template');
-		const el = template.parentElement.insertBefore(template.cloneNode(true), select('.message.type-input'));
-		el.classList.remove('template');
-		el.classList.add('type-' + type.toLowerCase());
-		el.querySelector('.message-type').textContent = type;
-		el.querySelector('.message-data').textContent = data || '';
-		el.querySelector('.message-data').innerHTML += '&nbsp;';
-		el.scrollIntoView(true);
-	}
-
-	function connect(url) {
-		function action() {
-			appendMessage('open', url);
-			try {
-				ws = new WebSocket(url);
-			} catch (ex) {
-				appendMessage('exception', 'Cannot connect: ' + ex);
-				return;
-			}
-
-			select('.connect').style.display = 'none';
-			select('.disconnect').style.display = 'block';
-
-			ws.addEventListener('open', (ev) => {
-				appendMessage('onopen');
-			});
-			ws.addEventListener('close', (ev) => {
-				select('.connect').style.display = 'block';
-				select('.disconnect').style.display = 'none';
-				appendMessage('onclose', '[Clean: ' + ev.wasClean + ', Code: ' + ev.code + ', Reason: ' + (ev.reason || 'none') + ']');
-				ws = null;
-				select('.url').focus();
-			});
-			ws.addEventListener('message', (ev) => {
-				if (typeof(ev.data) == "object") {
-					const rd = new FileReader();
-					rd.onload = (ev) => {
-						appendMessage('onmessage', 'BLOB: ' + rd.result);
-					};
-					rd.readAsBinaryString(ev.data);
-				} else {
-					appendMessage('onmessage', ev.data);
-				}
-			});
-			ws.addEventListener('error', (ev) => {
-				appendMessage('onerror');
-			});
-
-			select('.send-input').focus();
-		}
-
-		if (ws) {
-			ws.addEventListener('close', (ev) => {
-				action();
-			});
-			disconnect();
-		} else {
-			action();
-		}
-	}
-
-	function disconnect() {
-		if (ws) {
-			appendMessage('close');
-			ws.close();
-		}
-	}
-
-	function send(msg) {
-		appendToSendHistory(msg);
-		appendMessage('send', msg);
-		if (ws) {
-			try {
-				ws.send(msg);
-			} catch (ex) {
-				appendMessage('exception', 'Cannot send: ' + ex);
-			}
-		} else {
-			appendMessage('exception', 'Cannot send: Not connected');
-		}
-	}
-
-	function select(selector) {
-		return document.querySelector(selector);
-	}
-
-	const maxSendHistorySize = 100;
-	let currentSendHistoryPosition = -1;
-	let sendHistoryRollback = '';
-
-	function appendToSendHistory(msg) {
-		currentSendHistoryPosition = -1;
-		sendHistoryRollback = '';
-		const sendHistory = JSON.parse(localStorage['websocketdconsole.sendhistory'] || '[]');
-		if (sendHistory[0] !== msg) {
-			sendHistory.unshift(msg);
-			while (sendHistory.length > maxSendHistorySize) {
-				sendHistory.pop();
-			}
-			localStorage['websocketdconsole.sendhistory'] = JSON.stringify(sendHistory);
-		}
-	}
-
-	function moveThroughSendHistory(offset) {
-		if (currentSendHistoryPosition == -1) {
-			sendHistoryRollback = select('.send-input').value;
-		}
-		const sendHistory = JSON.parse(localStorage['websocketdconsole.sendhistory'] || '[]');
-		currentSendHistoryPosition += offset;
-		currentSendHistoryPosition = Math.max(-1, Math.min(sendHistory.length - 1, currentSendHistoryPosition));
-
-		const el = select('.send-input');
-		el.value = currentSendHistoryPosition == -1
-			? sendHistoryRollback
-			: sendHistory[currentSendHistoryPosition];
-		setTimeout(() => {
-			el.setSelectionRange(el.value.length, el.value.length);
-		}, 0);
-	}
-
-	document.addEventListener("DOMContentLoaded", ready, false);
-
-</script>
-
-`
+import (
+	"crypto/sha256"
+	_ "embed"
+	"encoding/base64"
+	"encoding/hex"
+	"fmt"
+	"strings"
 )
 
-// ConsoleContent has {{license}} pre-expanded. Only {{addr}} needs per-request substitution.
+// The console is a single HTML file containing all its CSS and JS inline,
+// embedded into the binary at build time. Keeping it as a real .html file
+// (rather than a Go string literal) means it can be opened directly in a
+// browser during development, edited with normal tooling, and — since a Go
+// raw string literal cannot contain a backtick — that its JavaScript is free
+// to use template literals.
+//
+// We can get by without jQuery or Bootstrap for this one ;).
+
+//go:embed console.html
+var consoleHTML string
+
+// ConsoleContent is the whole console page, expanded once at init.
+//
+// It is deliberately request-independent. The page used to carry an {{addr}}
+// placeholder substituted per request with a Host- and RequestURI-derived
+// WebSocket URL, which put attacker-controlled text inside an HTML attribute
+// (reflected XSS, patched once by escaping). That substitution was already
+// dead weight: the console overwrites the field from location.href on load,
+// so the server-side value was never seen. Removing it kills the whole
+// injection class structurally rather than escaping around it, and makes the
+// response a constant that can carry a strong ETag.
 var ConsoleContent string
 
+// ConsoleCSP is the Content-Security-Policy for the console response. The
+// script and style hashes are computed at init from the page that is actually
+// served, never written out by hand: a hand-copied hash goes stale the first
+// time someone edits the file, and a stale hash means a blank console with an
+// error in the devtools log. Deriving them here makes "edit the HTML" the
+// whole workflow.
+//
+// connect-src has to allow ws: and wss: generally — the point of the console
+// is that the user types the URL — but everything else is denied, so a frame
+// from a hostile server has no way to become a resource load.
+var ConsoleCSP string
+
+// ConsoleETag is a strong validator over the exact bytes of ConsoleContent.
+// The body no longer varies with the request, so a repeat visit can be
+// answered with a 304 rather than the whole page.
+var ConsoleETag string
+
 func init() {
-	ConsoleContent = strings.Replace(defaultConsoleContent, "{{license}}", License, -1)
+	ConsoleContent = strings.Replace(consoleHTML, "{{license}}", License, -1)
+	ConsoleCSP = consoleCSP(ConsoleContent)
+	sum := sha256.Sum256([]byte(ConsoleContent))
+	ConsoleETag = `"` + hex.EncodeToString(sum[:16]) + `"`
+}
+
+// consoleCSP builds the policy from the page content.
+//
+// It panics if the page carries no inline <script> or <style> — the content
+// is embedded at build time and cannot depend on anything at runtime, so an
+// empty hash list is a broken build, not a condition to degrade around.
+// Serving an unusable console quietly is the worse failure.
+func consoleCSP(content string) string {
+	script := inlineHashes(content, "script")
+	style := inlineHashes(content, "style")
+	if len(script) == 0 || len(style) == 0 {
+		panic(fmt.Sprintf("console page has %d inline <script> and %d inline <style> blocks; "+
+			"the CSP hashes cannot be computed (are the tags carrying attributes?)", len(script), len(style)))
+	}
+	return strings.Join([]string{
+		"default-src 'none'",
+		"script-src " + strings.Join(script, " "),
+		"style-src " + strings.Join(style, " "),
+		"connect-src ws: wss:",
+		"frame-ancestors 'none'",
+	}, "; ")
+}
+
+// inlineHashes returns a CSP sha256 source expression for the body of every
+// <tag>...</tag> block in content. The tags are matched without attributes
+// because that is exactly how the console writes them; a tag that grew an
+// attribute would drop out of the list and trip the panic above rather than
+// producing a policy that silently fails to cover it.
+func inlineHashes(content, tag string) []string {
+	open, closing := "<"+tag+">", "</"+tag+">"
+	var out []string
+	rest := content
+	for {
+		i := strings.Index(rest, open)
+		if i < 0 {
+			return out
+		}
+		rest = rest[i+len(open):]
+		j := strings.Index(rest, closing)
+		if j < 0 {
+			return out
+		}
+		sum := sha256.Sum256([]byte(rest[:j]))
+		out = append(out, "'sha256-"+base64.StdEncoding.EncodeToString(sum[:])+"'")
+		rest = rest[j+len(closing):]
+	}
 }

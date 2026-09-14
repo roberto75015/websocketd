@@ -7,6 +7,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-001: Same-Origin Policy - Same Origin
 
 **Priority**: P0
+**Automated**: `TestSEC001_SameOriginAccepted` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: `websocketd --port=8080 --sameorigin cat`
 
 **Steps**:
@@ -20,6 +21,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-002: Same-Origin Policy - Cross Origin
 
 **Priority**: P0
+**Automated**: `TestSEC002_SameOriginRejected` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: `websocketd --port=8080 --sameorigin cat`
 
 **Steps**:
@@ -33,6 +35,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-003: Same-Origin Policy - No Origin Header
 
 **Priority**: P1
+**Automated**: `TestCheckOrigin` (libwebsocketd). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: `websocketd --port=8080 --sameorigin cat`
 
 **Steps**:
@@ -45,6 +48,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-004: Origin Whitelist - Accepted Origin
 
 **Priority**: P0
+**Automated**: `TestSEC003_OriginWhitelistAccepted` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: `websocketd --port=8080 --origin=trusted.com cat`
 
 **Steps**:
@@ -57,6 +61,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-005: Origin Whitelist - Rejected Origin
 
 **Priority**: P0
+**Automated**: `TestSEC004_OriginWhitelistRejected` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: `websocketd --port=8080 --origin=trusted.com cat`
 
 **Steps**:
@@ -69,6 +74,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-006: Origin Whitelist - Port Matching
 
 **Priority**: P1
+**Automated**: `TestSEC005_OriginWhitelistWithPort`, `TestSEC014_OriginPortMatching` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: `websocketd --port=8080 --origin=trusted.com:3000 cat`
 
 **Steps**:
@@ -83,6 +89,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-007: Multiple Allowed Origins
 
 **Priority**: P1
+**Automated**: `TestSEC006_MultipleOrigins` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: `websocketd --port=8080 --origin=a.com,b.com cat`
 
 **Steps**:
@@ -97,6 +104,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-008: Null Origin
 
 **Priority**: P1
+**Automated**: `TestSEC007_NullOrigin` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: `websocketd --port=8080 --sameorigin cat`
 
 **Steps**:
@@ -126,6 +134,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-010: No Origin Restrictions (Default)
 
 **Priority**: P0
+**Automated**: `TestSEC008_NoOriginRestrictionDefault`, `TestSEC015_OriginPolicyWarning`, `TestSEC017_AnyOriginKeepsPermissiveDefault` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 cat` (no --sameorigin, no --origin)
@@ -138,6 +147,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-011: Environment Variable Isolation
 
 **Priority**: P0
+**Automated**: `TestSEC009_EnvironmentIsolation` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Set sensitive vars: `export SECRET_KEY=s3cr3t`, `export DATABASE_URL=postgres://...`
 
 **Steps**:
@@ -151,6 +161,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-012: --passenv Selective Passing
 
 **Priority**: P1
+**Automated**: `TestCLI011_Passenv` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: `export SAFE=ok UNSAFE=hidden`
 
 **Steps**:
@@ -164,6 +175,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-013: TLS Certificate
 
 **Priority**: P0
+**Automated**: `TestSEC010_SSLConnection`, `TestIssue413_MutualTLS` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Self-signed cert for localhost
 
 **Steps**:
@@ -178,6 +190,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-014: TLS Protocol Versions
 
 **Priority**: P1
+**Automated**: `TestTLSConfigMinVersion` (root package). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd with SSL
 
 **Steps**:
@@ -204,6 +217,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-016: TLS with Missing Files
 
 **Priority**: P1
+**Automated**: `TestCLI007_SSLWithoutCert` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --ssl --sslcert=/nonexistent --sslkey=/nonexistent cat`
@@ -215,6 +229,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-017: Command Injection via URL Path
 
 **Priority**: P0 (Security)
+**Automated**: `TestSEC011_CommandInjectionViaURL` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Script directory mode
 
 **Steps**:
@@ -229,6 +244,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-018: Command Injection via Query String
 
 **Priority**: P0 (Security)
+**Automated**: `TestSEC012_CommandInjectionViaQueryString` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect to `ws://localhost:8080/?$(rm -rf /)`
@@ -241,6 +257,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-019: Header Injection
 
 **Priority**: P1
+**Automated**: `TestSEC013_HttpoxyProxyHeaderStripped`, `TestRedirPortHostileTargets` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Send request with header containing newlines: `X-Injected: value\r\nX-Evil: injected`
@@ -252,6 +269,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-020: DoS - Fork Limit
 
 **Priority**: P1
+**Automated**: `TestPROC004_MaxforksLimit`, `TestPERF005_MaxforksUnderPressure` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: `websocketd --port=8080 --maxforks=10 cat`
 
 **Steps**:
@@ -289,12 +307,27 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-023: HTTPS Redirect Open Redirect
 
 **Priority**: P2
+**Automated**: `TestRedirPortHostileTargets`, `TestRedirectTargetKeepsOwnAuthority` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd with --ssl and --redirport
 
 **Steps**:
-1. `curl -H "Host: evil.com" http://localhost:8080/`
+1. `curl -D- -H "Host: evil.com" http://localhost:<redirport>/`
+2. `curl -D- --request-target "//evil.com/x" http://localhost:<redirport>/`
+3. `curl -D- "http://localhost:<redirport>/../../etc/passwd"`
 
-**Expected Result**: Redirect URL uses the configured host, NOT the Host header. No open redirect.
+**Expected Result**: Step 1 redirects to `https://evil.com:<sslport>/` — the host
+IS the client's own Host header, and only the port and scheme are rewritten. That
+is deliberate, not an open redirect: the redirect server has no configured host of
+its own to use, and a client that already chose to send `Host: evil.com` is being
+sent back to the host it named. Steps 2 and 3 must NOT reach another authority:
+the reference is resolved against the origin with RFC 3986 rules, so `//evil.com`
+stays a path and dot segments cannot climb above the root.
+
+**Notes**: Rewritten 2026-09-07. This case previously expected the opposite —
+"uses the configured host, NOT the Host header" — which the code has never done;
+see the comment on `redirectLocation` in `main.go`. Driving the binary returns
+`Location: https://evil.com:<sslport>/`, so a tester following the old wording
+would have filed a bug against intended behaviour.
 
 ---
 
@@ -316,6 +349,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-025: Gosec Static Analysis
 
 **Priority**: P1
+**Automated**: `.github/workflows/test.yml` job "lint" runs gosec. Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Install gosec: `go install github.com/securego/gosec/v2/cmd/gosec@latest`
@@ -331,6 +365,7 @@ Tests for origin validation, TLS/SSL, environment variable isolation, and attack
 ## SEC-026: WebSocket Frame Size Limits
 
 **Priority**: P2
+**Automated**: `TestWebSocketReadLimit` (libwebsocketd). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Send a WebSocket frame larger than the default gorilla/websocket read limit

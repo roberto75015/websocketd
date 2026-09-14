@@ -7,18 +7,27 @@ Tests for the built-in interactive testing console (--devconsole flag).
 ## DEV-001: Console Page Loads
 
 **Priority**: P0
+**Automated**: `TestDevConsoleHTMLParsesAndMatchesDOMContract`; libwebsocketd `TestDevConsoleHTMLWellformed`, `TestConsoleDOMContract` (qa/browser). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: `websocketd --port=8080 --devconsole cat`
 
 **Steps**:
 1. Open `http://localhost:8080/` in a browser
 
-**Expected Result**: HTML page loads with the interactive WebSocket console. Includes connect/disconnect buttons, message input, and message log area.
+**Expected Result**: HTML page loads with the split-inspector console: a URL bar, a
+single Connect button that relabels itself to Disconnect while connected, a
+status pill, sent/received counters, a frame list on one side and a detail pane
+on the other with Pretty / Raw / Hex views, and Clear / Copy / Theme controls.
+
+**Notes**: Rewritten 2026-09-07. The console was rebuilt as a split inspector in
+commit 29d7f87; before that it was a single scrolling log with separate connect
+and disconnect buttons, which is what this case used to describe.
 
 ---
 
 ## DEV-002: Connect Button
 
 **Priority**: P0
+**Automated**: `TestConsoleConnectShowsConnectedState` (qa/browser). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Open the dev console in a browser
@@ -43,6 +52,7 @@ Tests for the built-in interactive testing console (--devconsole flag).
 ## DEV-004: Send Message
 
 **Priority**: P0
+**Automated**: `TestConsoleSendAndReceiveEcho` (qa/browser). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect via dev console
@@ -56,6 +66,7 @@ Tests for the built-in interactive testing console (--devconsole flag).
 ## DEV-005: Message History (Arrow Keys)
 
 **Priority**: P1
+**Automated**: `TestConsoleSendHistoryUpDown` (qa/browser). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect and send several messages: "msg1", "msg2", "msg3"
@@ -74,7 +85,12 @@ Tests for the built-in interactive testing console (--devconsole flag).
 1. Connect via dev console
 2. Send a binary message
 
-**Expected Result**: Binary messages are displayed (may show as "blob" indicator). Console does not crash.
+**Expected Result**: The frame is listed as binary and the detail pane's Hex view
+shows a hex dump of the octets the server actually sent. Console does not crash.
+
+**Notes**: Rewritten 2026-09-07. The rebuilt console sets `binaryType =
+'arraybuffer'` and hex-dumps the payload; the old "blob" indicator this case
+expected is gone (commit 29d7f87).
 
 ---
 
@@ -87,7 +103,13 @@ Tests for the built-in interactive testing console (--devconsole flag).
 2. Modify the WebSocket URL in the console
 3. Connect
 
-**Expected Result**: Browser URL bar updates to reflect the WebSocket path. Navigation works.
+**Expected Result**: The console connects to the URL as edited. The browser's own
+address bar does NOT change — the rebuilt console pushes no history entry.
+
+**Notes**: Rewritten 2026-09-07. The pre-rebuild console called
+`history.pushState` on connect (console.html line 192 at 29d7f87^); the rebuilt
+console does not. Following the old expectation would file a bug against
+intended behaviour.
 
 ---
 
@@ -128,13 +150,22 @@ Tests for the built-in interactive testing console (--devconsole flag).
 2. Refresh the page
 3. Check if message history persists
 
-**Expected Result**: Message history may use localStorage for persistence (documented in console source code).
+**Expected Result**: The transcript does NOT survive a refresh. Two things do,
+both in localStorage: the send history (key `websocketd.console.sendhistory`,
+recalled with Up/Down — see DEV-005) and the chosen theme (key
+`websocketd.console.theme`).
+
+**Notes**: Rewritten 2026-09-07. The old key was `websocketdconsole.sendhistory`;
+the rebuilt console namespaced it and added theme persistence (commit 29d7f87).
+Theme persistence is covered by `TestConsoleThemeTogglePersistsAcrossReload`
+(qa/browser).
 
 ---
 
 ## DEV-011: Dev Console Without --devconsole Flag
 
 **Priority**: P1
+**Automated**: `TestDevConsoleDisabledStaysDisabled` (libwebsocketd). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Start websocketd WITHOUT --devconsole

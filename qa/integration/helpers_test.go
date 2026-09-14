@@ -124,35 +124,36 @@ func startServerOpts(t *testing.T, wsFlags []string, mode string, modeArgs ...st
 	return startServerRaw(t, wsFlags, testcmdBin, cmdArgs...)
 }
 
-// startServerRaw starts websocketd with arbitrary flags and command,
-// listening on a free TCP port.
+// startServerArgsInDir starts websocketd on a free TCP port with the standard
+// --port/--address/--loglevel prefix followed by args, from working directory
+// dir (empty inherits the test process's own). It is the one place the port
+// race is retried; every other starter in this package is a thin spelling of
+// it.
 //
 // freePort must close its probe listener before websocketd can bind the
 // port, so something else can take it in the gap. websocketd exits when that
 // happens, so a lost race is retried on a fresh port rather than failing a
 // test that has nothing to do with port allocation.
-func startServerRaw(t *testing.T, wsFlags []string, command string, cmdArgs ...string) *Server {
+func startServerArgsInDir(t *testing.T, dir string, args []string) *Server {
 	t.Helper()
 
 	var lastErr error
 	for attempt := 0; attempt < 3; attempt++ {
 		port := freePort(t)
 
-		args := []string{
+		full := []string{
 			"--port=" + strconv.Itoa(port),
 			"--address=127.0.0.1",
 			"--loglevel=access",
 		}
-		args = append(args, wsFlags...)
-		args = append(args, command)
-		args = append(args, cmdArgs...)
+		full = append(full, args...)
 
-		s := startServerRawArgs(t, args)
+		s := startServerRawArgsInDir(t, dir, full)
 		s.Port = port
 		// The readiness probe speaks to the server directly, so it has to
 		// know whether to start with a TLS handshake. startServerSSL sets
 		// this too, but only once the server is already up.
-		for _, f := range wsFlags {
+		for _, f := range args {
 			if f == "--ssl" {
 				s.IsHTTPS = true
 			}
@@ -167,13 +168,41 @@ func startServerRaw(t *testing.T, wsFlags []string, command string, cmdArgs ...s
 	return nil
 }
 
+// startServerRaw starts websocketd with arbitrary flags and command,
+// listening on a free TCP port.
+func startServerRaw(t *testing.T, wsFlags []string, command string, cmdArgs ...string) *Server {
+	t.Helper()
+	args := append(append([]string{}, wsFlags...), command)
+	return startServerArgsInDir(t, "", append(args, cmdArgs...))
+}
+
+// startServerInDir starts websocketd with the given flags and testcmd echo
+// from working directory dir. Relative --staticdir/--cgidir values resolve
+// against it, and the test process must not chdir to arrange that: these
+// tests run in parallel and the working directory is process-global.
+func startServerInDir(t *testing.T, dir string, wsFlags []string) *Server {
+	t.Helper()
+	return startServerArgsInDir(t, dir, append(append([]string{}, wsFlags...), testcmdBin, "echo"))
+}
+
 // startServerRawArgs starts websocketd with a fully custom argument list —
 // e.g. for --unixsocket-only tests, which must not have a --port/--address
 // injected. Callers are responsible for waiting on readiness themselves
 // (waitForPort, waitForSocket, ...).
 func startServerRawArgs(t *testing.T, args []string) *Server {
 	t.Helper()
+	return startServerRawArgsInDir(t, "", args)
+}
+
+// startServerRawArgsInDir is startServerRawArgs with an explicit working
+// directory for the websocketd process. Relative --staticdir/--cgidir values
+// are resolved against it, and the test process must not chdir to arrange
+// that: integration tests run in parallel and the working directory is
+// process-global. An empty dir inherits the test process's own.
+func startServerRawArgsInDir(t *testing.T, dir string, args []string) *Server {
+	t.Helper()
 	cmd := exec.Command(websocketdBin, args...)
+	cmd.Dir = dir
 
 	s := &Server{
 		t:      t,

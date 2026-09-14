@@ -1,0 +1,25 @@
+{{- /*
+  Theme templates all use relURL/RelPermalink, which already respect
+  baseURL's path component (the site is served at /docs on the existing
+  domain, not on a subdomain -- GitHub Pages allows one custom-domain
+  deployment per repository). Content files
+  themselves link to each other with raw root-relative markdown links
+  like [text](/guide/foo/) -- Goldmark renders those verbatim, so
+  without this hook every such link would point at /guide/foo/ instead
+  of /docs/guide/foo/. This hook is the one place that gap is closed,
+  for every page, without touching 98 hand-written links in content/.
+*/ -}}
+{{- /*
+  relURL does NOT prepend baseURL's path segment ("/docs") to an input
+  that already starts with "/" -- Hugo treats a leading slash as already
+  domain-root-absolute. Confirmed directly: {{ "/start/" | relURL }}
+  under baseURL "https://x/docs/" yields "/start/", not "/docs/start/".
+  Stripping the leading slash first is what makes relURL actually join
+  it onto baseURL's path (same fix applied to the theme's nav/footer/
+  baseof/index templates, which had the identical bug).
+*/ -}}
+{{- $dest := .Destination -}}
+{{- if strings.HasPrefix $dest "/" -}}
+  {{- $dest = strings.TrimPrefix "/" $dest | relURL -}}
+{{- end -}}
+<a href="{{ $dest | safeURL }}"{{ with .Title }} title="{{ . }}"{{ end }}>{{ .Text | safeHTML }}</a>

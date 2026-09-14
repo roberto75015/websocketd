@@ -9,6 +9,7 @@ Tests for unusual inputs, error conditions, race conditions, and unexpected stat
 ### EDGE-001: Extremely Long Line (Text Mode)
 
 **Priority**: P1
+**Automated**: `TestEDGE001_VeryLongLine`, `TestBUG006_TextLargeLineNoDeadlock` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 cat`
@@ -21,6 +22,7 @@ Tests for unusual inputs, error conditions, race conditions, and unexpected stat
 ### EDGE-002: Message with Only Whitespace
 
 **Priority**: P2
+**Automated**: `TestEDGE002_WhitespaceMessage` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Send messages containing:
@@ -59,6 +61,7 @@ Tests for unusual inputs, error conditions, race conditions, and unexpected stat
 ### EDGE-005: Embedded Newlines in WebSocket Frame
 
 **Priority**: P1
+**Automated**: `TestEDGE003_EmbeddedNewlines` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. In text mode, send a single WebSocket frame containing "line1\nline2\nline3"
@@ -70,6 +73,7 @@ Tests for unusual inputs, error conditions, race conditions, and unexpected stat
 ### EDGE-006: Very Rapid Message Sending
 
 **Priority**: P1
+**Automated**: `TestCORE014_RapidMessages` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Send 10,000 messages as fast as possible
@@ -82,6 +86,7 @@ Tests for unusual inputs, error conditions, race conditions, and unexpected stat
 ### EDGE-007: Unicode Boundary Characters
 
 **Priority**: P2
+**Automated**: `TestCORE012_UnicodeMessages`, `TestEDGE012_SpecialCharactersInMessages` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Send messages containing:
@@ -99,6 +104,7 @@ Tests for unusual inputs, error conditions, race conditions, and unexpected stat
 ### EDGE-008: Process Writes to Closed WebSocket
 
 **Priority**: P1
+**Automated**: `TestBACKPRESSURE003_WebSocketCloseWhileProcessOutputPending` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Script that outputs continuously:
 ```bash
 #!/bin/bash
@@ -117,6 +123,7 @@ while true; do echo "output"; sleep 0.1; done
 ### EDGE-009: WebSocket Sends to Exited Process
 
 **Priority**: P1
+**Automated**: `TestEDGE005_SendToExitedProcess` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Script that exits after 1 second:
 ```bash
 #!/bin/bash
@@ -154,6 +161,7 @@ exit 0
 ### EDGE-011: Process That Never Reads STDIN
 
 **Priority**: P1
+**Automated**: `TestEDGE011_IgnoreStdinProcess` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Script that ignores stdin:
 ```bash
 #!/bin/bash
@@ -184,6 +192,7 @@ sleep 60
 ### EDGE-013: Very Long Process Startup Time
 
 **Priority**: P2
+**Automated**: `TestPROC011_SlowStartProcess` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: Script that takes 30 seconds to start:
 ```bash
 #!/bin/bash
@@ -205,6 +214,7 @@ while IFS= read -r line; do echo "$line"; done
 ### EDGE-014: Simultaneous Connect and Disconnect
 
 **Priority**: P2
+**Automated**: `TestEDGE010_ConcurrentConnectDisconnect` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Rapidly open and close connections in parallel (50+ concurrent operations)
@@ -219,6 +229,7 @@ while IFS= read -r line; do echo "$line"; done
 ### EDGE-015: Process Exit During WebSocket Send
 
 **Priority**: P1
+**Automated**: `TestEDGE004_ProcessExitDuringConnection`, `TestBACKPRESSURE002_ProcessExitMidStream` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Have a script that exits at a random time
@@ -232,6 +243,7 @@ while IFS= read -r line; do echo "$line"; done
 ### EDGE-016: Concurrent WebSocket Close and Process Output
 
 **Priority**: P1
+**Automated**: `TestBACKPRESSURE003_WebSocketCloseWhileProcessOutputPending` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Script outputs data rapidly
@@ -244,6 +256,7 @@ while IFS= read -r line; do echo "$line"; done
 ### EDGE-017: Multiple Rapid Reconnections to Same URL
 
 **Priority**: P1
+**Automated**: `TestEDGE006_RapidReconnection` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Connect, disconnect, reconnect rapidly 100 times to the same URL
@@ -269,6 +282,7 @@ while IFS= read -r line; do echo "$line"; done
 ### EDGE-019: Empty Origin Header
 
 **Priority**: P2
+**Automated**: `TestCheckOrigin`, `TestMatchOrigin` (libwebsocketd). Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd with --sameorigin
 
 **Steps**:
@@ -337,6 +351,7 @@ while IFS= read -r line; do echo "$line"; done
 ### EDGE-024: Nil Pointer Dereference
 
 **Priority**: P0
+**Automated**: `TestEDGE007_NilPointerRegression`, `TestIssue342_NilPointerOnBrokenConnection` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Start websocketd with `--ssl --port=8443` but no `--address`
@@ -351,6 +366,7 @@ while IFS= read -r line; do echo "$line"; done
 ### EDGE-025: Binary Frame Doubling
 
 **Priority**: P0
+**Automated**: `TestEDGE008_BinaryFrameDoublingRegression`, `TestCORE008_BinaryFrameNotDoubled` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. `websocketd --port=8080 --binary cat`
@@ -366,6 +382,7 @@ while IFS= read -r line; do echo "$line"; done
 ### EDGE-026: Process Hang After Client Disconnect
 
 **Priority**: P0
+**Automated**: `TestEDGE009_ProcessHangRegression`, `TestPROC013_SessionTeardownKillsProcessGroup` (qa/integration). Runs in CI on every push; a human need not repeat this case.
 
 **Steps**:
 1. Start a long-running script

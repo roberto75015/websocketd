@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"runtime"
 	"strconv"
@@ -190,6 +191,48 @@ func redirectLocation(clientHost, listenAddr string, ssl bool) string {
 	return scheme + "://" + net.JoinHostPort(host, port) + "/"
 }
 
+// redirectTarget builds the Location header the redirect server actually
+// sends for one request: redirectLocation's canonical origin, carrying the
+// path and query the client asked for. Without this a link into the site
+// (http://example.com/docs/page.html?q=1) redirected to the front page.
+//
+// Still not an open redirect. The origin is produced by redirectLocation and
+// nothing here can change it. The client-controlled bytes are never
+// concatenated onto that string; they travel as the Path/RawPath/RawQuery
+// fields of a reference URL that has no scheme and no host, and
+// URL.ResolveReference applies RFC 3986 resolution. A reference without an
+// authority cannot introduce one, so a path beginning "//" stays a path
+// rather than becoming a protocol-relative URL, and dot segments are removed
+// against the origin's root instead of climbing above it. URL.String() then
+// does the escaping: EscapedPath keeps the client's own percent-encoding
+// where it is a valid encoding of the decoded path and escapes what is not,
+// so nothing is double-encoded and an encoded "%2F" is not decoded into a
+// path separator.
+//
+// r.URL.Opaque and r.URL.Host are deliberately ignored. An absolute-form or
+// opaque request target ("GET http:foo") carries a host of its own, and
+// r.URL.RequestURI() would splice "http:foo" into the middle of the Location;
+// reading only Path and RawQuery degrades such a request to the bare origin.
+func redirectTarget(clientHost, listenAddr string, ssl bool, reqURL *url.URL) string {
+	origin := redirectLocation(clientHost, listenAddr, ssl)
+	if reqURL == nil {
+		return origin
+	}
+	base, err := url.Parse(origin)
+	if err != nil {
+		// redirectLocation built this string from a host it had already
+		// split; if it will not parse, the origin alone is the safe answer.
+		return origin
+	}
+	ref := &url.URL{
+		Path:       reqURL.Path,
+		RawPath:    reqURL.RawPath,
+		RawQuery:   reqURL.RawQuery,
+		ForceQuery: reqURL.ForceQuery,
+	}
+	return base.ResolveReference(ref).String()
+}
+
 // originPolicyWarning is printed at startup when no origin policy is
 // configured (audit finding A2: the default accepts any origin, so any web
 // page that can reach the server can drive the commands it serves). It is
@@ -309,8 +352,10 @@ func main() {
 					IdleTimeout:       60 * time.Second,
 					Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 						// Not an open redirect: the target is the host the client itself
-						// sent, switched to the canonical scheme and port.
-						http.Redirect(w, r, redirectLocation(r.Host, addr, config.Ssl), http.StatusMovedPermanently) // #nosec G710
+						// sent, switched to the canonical scheme and port, carrying the
+						// path and query it asked for. See redirectTarget for why the
+						// client-controlled bytes cannot move the authority.
+						http.Redirect(w, r, redirectTarget(r.Host, addr, config.Ssl, r.URL), http.StatusMovedPermanently) // #nosec G710
 					})}
 				log.Info("server", "Starting redirect server   : http://%s/", rediraddr)
 				rejects <- redir.ListenAndServe()

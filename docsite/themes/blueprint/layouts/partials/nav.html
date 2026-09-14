@@ -1,0 +1,86 @@
+{{/*
+  Hard-coded against docsite/PLAN.md's site map, in Diataxis order:
+  tutorial (start), how-to, reference, explanation (understanding), then
+  the two standalone pages. Update this list if the map changes.
+
+  Every href goes through (strings.TrimPrefix "/" "/path/") | relURL.
+  relURL does NOT prepend baseURL's path segment ("/docs") to an input
+  that already starts with "/" -- Hugo treats a leading slash as
+  domain-root-absolute -- so stripping the slash first is what makes
+  relURL join the path onto baseURL. Removing the TrimPrefix breaks
+  every link on the deployed site while leaving a local `hugo server`
+  build looking fine.
+
+  how-to/ lists its three groups rather than all twenty leaf recipes.
+  Twenty more rows would put the sidebar at roughly 48 entries and
+  reopen the mobile drawer height problem that .site-nav li was tuned to
+  fix. Each group's index page lists its own recipes with a one-line
+  description, ordered by weight (layouts/_default/list.html).
+*/}}
+<nav class="site-nav" aria-label="Section navigation">
+  <ul>
+    <li class="nav-section">
+      <a href="{{ (strings.TrimPrefix "/" "/") | relURL }}"{{ if .IsHome }} aria-current="page"{{ end }}>Home</a>
+    </li>
+
+    <li class="nav-section">
+      <div class="nav-section-title">Start</div>
+      <ul>
+        <li><a href="{{ (strings.TrimPrefix "/" "/start/") | relURL }}">Overview</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/start/install/") | relURL }}">Install websocketd</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/start/tutorial/") | relURL }}">Tutorial</a></li>
+      </ul>
+    </li>
+
+    <li class="nav-section">
+      <div class="nav-section-title">How-to</div>
+      <ul>
+        <li><a href="{{ (strings.TrimPrefix "/" "/how-to/") | relURL }}">Overview</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/how-to/languages/") | relURL }}">Languages</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/how-to/deploy/") | relURL }}">Deployment</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/how-to/patterns/") | relURL }}">Patterns</a></li>
+      </ul>
+    </li>
+
+    <li class="nav-section">
+      <div class="nav-section-title">Reference</div>
+      <ul>
+        <li><a href="{{ (strings.TrimPrefix "/" "/reference/") | relURL }}">Overview</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/reference/cli-flags/") | relURL }}">CLI flags</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/reference/environment-variables/") | relURL }}">Environment variables</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/reference/exit-codes/") | relURL }}">Exit codes</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/reference/dev-console/") | relURL }}">Dev console</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/reference/platform-support/") | relURL }}">Platform support</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/reference/examples/") | relURL }}">Examples</a></li>
+      </ul>
+    </li>
+
+    <li class="nav-section">
+      <div class="nav-section-title">Understanding</div>
+      <ul>
+        <li><a href="{{ (strings.TrimPrefix "/" "/understanding/") | relURL }}">Overview</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/understanding/process-model/") | relURL }}">The process model</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/understanding/message-framing/") | relURL }}">Message framing</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/understanding/output-buffering/") | relURL }}">Output buffering</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/understanding/process-lifecycle/") | relURL }}">Process lifecycle</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/understanding/cgi-environment/") | relURL }}">The CGI environment</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/understanding/security-model/") | relURL }}">The security model</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/understanding/design-decisions/") | relURL }}">Design decisions</a></li>
+      </ul>
+    </li>
+
+    {{/*
+      Two standalone top-level pages, not a group with children -- so one
+      shared .nav-section li wraps both as plain list items. Giving each
+      its own .nav-section li would apply the section-to-section
+      margin-top (meant to separate e.g. "Reference" from
+      "Understanding") and space them out like two more major sections.
+    */}}
+    <li class="nav-section">
+      <ul>
+        <li><a href="{{ (strings.TrimPrefix "/" "/faq/") | relURL }}">FAQ</a></li>
+        <li><a href="{{ (strings.TrimPrefix "/" "/changelog/") | relURL }}">Changelog</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>

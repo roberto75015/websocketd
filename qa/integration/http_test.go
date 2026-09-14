@@ -152,25 +152,42 @@ func TestHTTP005_DevConsoleServing(t *testing.T) {
 	}
 }
 
-// TestHTTP005b_DevConsoleXSS verifies the dev console HTML-escapes the
-// request-derived WebSocket address it echoes into the page. Go's net/http
-// surfaces a raw '"' in the request target verbatim in req.RequestURI, so an
-// unescaped substitution would break out of the value="..." attribute and
-// execute injected script. The request is sent raw because Go's HTTP client
-// (like curl) percent-encodes these characters before sending, hiding the bug.
-func TestHTTP005b_DevConsoleXSS(t *testing.T) {
+// TestHTTP005b_DevConsoleBodyIsConstant verifies the dev console page does
+// not depend on the request at all.
+//
+// The console used to interpolate a Host- and RequestURI-derived WebSocket
+// address into a value="..." attribute; net/http surfaces a raw '"' in the
+// request target verbatim, so the unescaped substitution was reflected XSS.
+// That was first patched by escaping, and is now fixed structurally: the
+// substitution is gone and the body is a constant. This test pins the
+// stronger property - byte-identical across request targets - because
+// "escaped correctly" is a property that can regress and "not present" is
+// not. The request is sent raw because Go's HTTP client (like curl)
+// percent-encodes these characters before sending.
+func TestHTTP005b_DevConsoleBodyIsConstant(t *testing.T) {
 	t.Parallel()
 	s := startServerOpts(t, []string{"--devconsole"}, "echo")
+
+	_, base := s.HTTPGet("/")
+	if len(base) == 0 {
+		t.Fatal("dev console served an empty body; this test cannot reach its subject")
+	}
 
 	resp := rawHTTPGet(t, s.Port, `/"><script>alert(1)</script>`)
 	body := readBody(t, resp)
 
-	if strings.Contains(body, `"><script>alert(1)</script>`) {
-		t.Errorf("SECURITY: dev console reflected an unescaped request path (XSS):\n%s", body)
+	if strings.Contains(body, "alert(1)") {
+		t.Errorf("SECURITY: dev console reflected the request path into the page:\n%s", body)
 	}
-	// The escaped form should be present, proving the value was echoed but neutralized.
-	if !strings.Contains(body, "&lt;script&gt;") && !strings.Contains(body, "&#34;&gt;&lt;script") {
-		t.Errorf("expected the injected path to appear HTML-escaped, body:\n%s", body)
+	if body != base {
+		t.Errorf("dev console body varies with the request target (%d bytes vs %d for /)", len(body), len(base))
+	}
+
+	for _, target := range []string{"/anything", "/a/b/c?x=1"} {
+		_, other := s.HTTPGet(target)
+		if other != base {
+			t.Errorf("dev console body for %q differs from / (%d bytes vs %d)", target, len(other), len(base))
+		}
 	}
 }
 

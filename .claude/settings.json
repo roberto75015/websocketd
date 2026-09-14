@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(go vet:*)",
+      "Bash(go run:*)",
+      "Bash(go mod:*)",
+      "Bash(gofmt:*)",
+      "Bash(staticcheck:*)",
+      "Bash(govulncheck:*)",
+      "Bash(gosec:*)",
+      "Bash(git worktree:*)",
+      "Bash(git merge:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git status:*)",
+      "Bash(git branch:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(curl:*)",
+      "Bash(ffmpeg:*)",
+      "Bash(gh issue:*)"
+    ],
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(git stash:*)"
+    ]
+  }
+}

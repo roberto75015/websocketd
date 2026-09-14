@@ -9,6 +9,7 @@ All tests in this file should be run on Windows 10 and Windows 11.
 ## WIN-001: Basic Functionality on Windows
 
 **Priority**: P0
+**Automated**: `.github/workflows/test.yml` job "test", windows-latest runner. Runs in CI on every push; a human need not repeat this case.
 **Preconditions**: websocketd.exe for windows_amd64
 
 **Steps**:
@@ -94,7 +95,7 @@ All tests in this file should be run on Windows 10 and Windows 11.
 
 ---
 
-## WIN-007: PowerShell Examples
+## WIN-016: PowerShell Examples
 
 **Priority**: P2
 
@@ -106,6 +107,11 @@ All tests in this file should be run on Windows 10 and Windows 11.
 
 **Expected Result**: PowerShell examples work correctly on Windows and,
 via PowerShell Core, on Linux/macOS.
+
+**Notes**: Renumbered 2026-09-07. Added as a second WIN-007 by commit 5ec965a,
+colliding with "Process Termination on Windows" below. The newcomer moved to the
+next free number so the older ID stays stable; it keeps its place in the file
+next to the other script-type cases.
 
 ---
 
