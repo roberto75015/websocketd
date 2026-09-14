@@ -109,11 +109,11 @@ Options:
                                  Default: false
 
   --raw={true,false}             Switches text communication to raw mode, process
-				 read byte by byte and passes it to the counterpart
-				 without adding or removing \n to the messages.
-				 Please mote that, when using --passstderr, stderr
-				 is still handled on a line by line basis.
-				 Default: false
+                                 read byte by byte and passes it to the counterpart
+                                 without adding or removing \n to the messages.
+                                 Please mote that, when using --passstderr, stderr
+                                 is still handled on a line by line basis.
+                                 Default: false
 
   --passstderr                   Forward the process's STDERR to WebSocket
                                  clients, tagged (alongside STDOUT) as JSON:
