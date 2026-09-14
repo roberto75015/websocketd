@@ -332,6 +332,7 @@ func parseCommandLine() *Config {
 	config.PingInterval = time.Duration(*fv.PingMs) * time.Millisecond
 	config.MaxFrameSize = *fv.MaxFrameSize
 	config.Binary = *fv.Binary
+	config.Raw = *fv.Raw
 	config.PassStderr = *fv.PassStderr
 	config.ReverseLookup = *fv.ReverseLookup
 	config.Ssl = *fv.SSL
