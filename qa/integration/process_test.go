@@ -43,7 +43,7 @@ func TestPROC001_ProcessPerConnection(t *testing.T) {
 // session and its --maxforks slot occupied) long after the connection was
 // gone, because signals were sent to the direct child only.
 func TestPROC013_SessionTeardownKillsProcessGroup(t *testing.T) {
-	t.Skip("runtime.GOOS:", runtime.GOOS)
+	t.Fatalf("runtime.GOOS: %s", runtime.GOOS)
 	if runtime.GOOS == "windows" {
 		t.Skip("process-group teardown is Unix-only")
 	}
