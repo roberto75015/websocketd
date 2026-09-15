@@ -146,10 +146,10 @@ func TestValidateBinaryPassStderr(t *testing.T) {
 
 func TestValidateRawBinary(t *testing.T) {
 	tests := []struct {
-		name       string
-		binary     bool
-		raw bool
-		wantErr    bool
+		name    string
+		binary  bool
+		raw     bool
+		wantErr bool
 	}{
 		{"neither set", false, false, false},
 		{"binary only", true, false, false},

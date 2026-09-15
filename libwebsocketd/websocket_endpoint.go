@@ -140,7 +140,7 @@ func (we *WebSocketEndpoint) readFrames() {
 			break
 		}
 		if we.mtype == websocket.TextMessage {
-			if ! we.raw {
+			if !we.raw {
 				p = append(p, '\n')
 			}
 		}

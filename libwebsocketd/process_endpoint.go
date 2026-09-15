@@ -23,7 +23,7 @@ type ProcessEndpoint struct {
 	doneOnce   sync.Once
 	log        *LogScope
 	bin        bool
-	raw        bool	
+	raw        bool
 	passStderr bool
 	wg         sync.WaitGroup
 }
@@ -35,7 +35,7 @@ func NewProcessEndpoint(process *LaunchedProcess, raw bool, bin bool, log *LogSc
 		done:       make(chan struct{}),
 		log:        log,
 		bin:        bin,
-		raw:		raw,
+		raw:        raw,
 		passStderr: passStderr,
 	}
 }
