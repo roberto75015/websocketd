@@ -281,7 +281,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "gendocs: writing %s: %s\n", manPath, err)
 		os.Exit(1)
 	}
-	if err := os.MkdirAll(cliFlagsDir, 0755); err != nil {		// #nosec G301
+	if err := os.MkdirAll(cliFlagsDir, 0755); err != nil { // #nosec G301
 		fmt.Fprintf(os.Stderr, "gendocs: creating %s: %s\n", cliFlagsDir, err)
 		os.Exit(1)
 	}
