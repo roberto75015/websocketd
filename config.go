@@ -363,6 +363,7 @@ func parseCommandLine() *Config {
 	// Resolve command or script directory
 	args := fv.FS.Args()
 	if len(args) < 1 && config.ScriptDir == "" && config.StaticDir == "" && config.CgiDir == "" {
+		//lint:ignore ST1005 COMMAND is ok to be upper case
 		exitWithUsageError(fmt.Errorf("Please specify COMMAND or provide --dir, --staticdir or --cgidir argument."))
 	}
 
