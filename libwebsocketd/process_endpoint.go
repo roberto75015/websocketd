@@ -150,7 +150,9 @@ func (pe *ProcessEndpoint) relayStdout(wrap func([]byte) []byte, finish func()) 
 		if pe.raw {
 			var b byte
 			b, err = bufin.ReadByte()
-			buf = []byte{b}
+			if err == nil {
+				buf = []byte{b}
+			}
 		} else {
 			buf, err = bufin.ReadBytes('\n')
 		}
@@ -234,7 +236,9 @@ func (pe *ProcessEndpoint) relayStderr(tag bool, finish func()) {
 		if pe.raw {
 			var b byte
 			b, err = bufstderr.ReadByte()
-			buf = []byte{b}
+			if err == nil {
+				buf = []byte{b}
+			}
 		} else {
 			buf, err = bufstderr.ReadSlice('\n')
 		}
